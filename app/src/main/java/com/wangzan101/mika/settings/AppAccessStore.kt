@@ -13,6 +13,58 @@ import kotlinx.serialization.json.*
 
 /** 应用权限与分类分开保存;没有记录的包名默认允许。 */
 class AppAccessStore(private val file: File) : AppAccessPolicy {
+    companion object {
+        /**
+         * Sàn chặn cứng của bản Phòng AI (chỉ thị trực tiếp của chủ máy): app ngân hàng, ví điện tử
+         * và sàn tiền số thì tác nhân KHÔNG BAO GIỜ được chạm vào — kể cả khi bật chế độ toàn quyền,
+         * kể cả khi người dùng lỡ tay gỡ chặn hay bấm "cho phép tất cả". Danh sách này được hợp nhất
+         * vào [AppAccessState.blocked] ở mọi đường nạp/lưu (xem [withFloor]) nên không có lối tắt nào
+         * gỡ được; muốn thêm app khác, chủ máy tự chặn thêm trong màn hình Quyền truy cập ứng dụng.
+         * Tên gói đã đối chiếu với trang Google Play/APKMirror của từng hãng (11/2026).
+         */
+        val HARDCODED_BLOCKED: Set<String> = setOf(
+            // Ngân hàng Việt Nam
+            "com.VCB", // Vietcombank
+            "com.vnpay.bidv", // BIDV
+            "vn.com.techcombank.bb.app", // Techcombank
+            "com.vietinbank.ipay", // VietinBank
+            "com.mbmobile", // MB Bank
+            "com.tpb.mb.gprsandroid", // TPBank
+            "com.vnpay.Agribank3g", // Agribank
+            "mobile.acb.com.vn", // ACB
+            "com.vib.myvib2", // VIB
+            "com.vnpay.hdbank", // HDBank
+            "com.hdbank.dihdbank", // HDBank (Đi HDBank)
+            // Ví điện tử Việt Nam
+            "com.mservice.momotransfer", // MoMo
+            "vn.com.vng.zalopay", // ZaloPay
+            "com.bplus.vtpay", // Viettel Money
+            "com.beeasy.toppay", // ShopeePay
+            "vnpay.smartacccount", // VNPAY
+            "vn.moca.pass", // Moca
+            "vn.vimo", // Vimo
+            // Ví/thanh toán quốc tế
+            "com.paypal.android.p2pmobile", // PayPal
+            "com.transferwise.android", // Wise
+            "com.revolut.revolut", // Revolut
+            // Sàn/ví tiền số
+            "com.binance.dev", // Binance
+            "com.coinbase.android", // Coinbase
+            "com.okinc.okex.gp", // OKX
+            "com.bybit.app", // Bybit
+            "io.metamask", // MetaMask
+            "com.wallet.crypto.trustapp", // Trust Wallet
+        )
+
+        /** Hợp nhất sàn chặn cứng vào trạng thái: các app trong [HARDCODED_BLOCKED] luôn bị chặn và không được phép chia sẻ màn hình. */
+        fun withFloor(state: AppAccessState): AppAccessState =
+            if (HARDCODED_BLOCKED.all { it in state.blocked } && state.shareAllowed.none { it in HARDCODED_BLOCKED }) state
+            else state.copy(
+                blocked = state.blocked + HARDCODED_BLOCKED,
+                shareAllowed = state.shareAllowed - HARDCODED_BLOCKED,
+            )
+    }
+
     private val mutable = MutableStateFlow(load())
     val state = mutable.asStateFlow()
     @Volatile var sensitiveUi: Boolean = false
@@ -47,11 +99,11 @@ class AppAccessStore(private val file: File) : AppAccessPolicy {
         it.copy(blocked = it.blocked + packages, shareAllowed = it.shareAllowed - packages)
     }
 
-    @Synchronized fun reset() = persist(AppAccessState(revision = current().revision + 1))
+    @Synchronized fun reset() = persist(withFloor(AppAccessState(revision = current().revision + 1)))
 
     private fun update(change: (AppAccessState) -> AppAccessState) {
         check(current().available) { "Application access settings must be reset before editing." }
-        persist(change(current()).copy(revision = current().revision + 1))
+        persist(withFloor(change(current())).copy(revision = current().revision + 1))
     }
 
     private fun persist(next: AppAccessState) {
@@ -73,8 +125,8 @@ class AppAccessStore(private val file: File) : AppAccessPolicy {
     }
 
     private fun load(): AppAccessState {
-        if (!file.exists()) return AppAccessState()
-        return runCatching {
+        if (!file.exists()) return withFloor(AppAccessState())
+        return withFloor(runCatching {
             val o = Json.parseToJsonElement(file.readText()).jsonObject
             require(o["version"]?.jsonPrimitive?.int == 1)
             fun strings(key: String) = o.getValue(key).jsonArray.map { it.jsonPrimitive.content }.toSet()
@@ -84,6 +136,6 @@ class AppAccessStore(private val file: File) : AppAccessPolicy {
                     c.getValue("reason").jsonPrimitive.content, c.getValue("manual").jsonPrimitive.boolean)
             }
             AppAccessState(strings("blocked"), strings("shareAllowed"), classes)
-        }.getOrElse { AppAccessState(available = false) }
+        }.getOrElse { AppAccessState(available = false) })
     }
 }

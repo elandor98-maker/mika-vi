@@ -617,7 +617,39 @@ class ProviderStore(
      * 记作看图、轻量,服务商和模型是主模型那条配置的。这是 App 里建可调用模型的唯一入口。
      * [session] 是这次调用属于的对话(同一段对话里建的模型都给同一个);服务商声明了会话头的,每个请求都带上它。
      */
-    fun modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? = configFor(role)?.let { cfg ->
+    fun modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? {
+        val primary = configFor(role) ?: return null
+        // AI nội bộ làm chính = lựa chọn offline có chủ đích: không tự ý gọi thêm nhà cloud nào khác.
+        if (primary.kind == ProviderConfig.Kind.Local) return buildMetered(primary, role, session)
+        val chain = failoverChain(primary)
+        if (chain.size == 1) return buildMetered(chain[0], role, session)
+        return FailoverChatModel(chain.map { buildMetered(it, role, session) })
+    }
+
+    /**
+     * Chuỗi dự phòng cho cấu hình chính [primary]: nó đứng đầu, sau đó lần lượt các cấu hình
+     * Main/Nhẹ/Nhìn của các nhà CLOUD khác đã có key sẵn (mỗi nhà tối đa một mắt xích).
+     * AI nội bộ không làm mắt xích dự phòng — nó chậm, chỉ dùng khi được chọn làm mô hình chính.
+     * Xem [FailoverChatModel]: nhà nào hết hạn mức/sập thì tự nhảy sang nhà kế tiếp.
+     */
+    private fun failoverChain(primary: ProviderConfig): List<ProviderConfig> {
+        val out = mutableListOf(primary)
+        val seenProviders = mutableSetOf(primary.providerId)
+        for (r in listOf(ModelRole.Main, ModelRole.Light, ModelRole.Vision)) {
+            val cfg = configFor(r) ?: continue
+            if (cfg.kind == ProviderConfig.Kind.Local) continue
+            if (cfg.providerId in seenProviders) continue
+            if (cfg.kind != ProviderConfig.Kind.ChatGpt && cfg.kind != ProviderConfig.Kind.Xai &&
+                apiKey(cfg.id).isNullOrBlank()
+            ) continue
+            seenProviders += cfg.providerId
+            out += cfg
+        }
+        return out
+    }
+
+    /** Dựng một mô hình đã bọc计量 từ đúng một cấu hình (thân cũ của [modelFor]). */
+    private fun buildMetered(cfg: ProviderConfig, role: ModelRole, session: ModelSession): ChatModel {
         val p = provider(cfg.providerId)
         val source = UsageSource(cfg.providerId, p?.name ?: cfg.name, cfg.model, UsagePurpose.of(role))
         val listed = listedOf(cfg)
@@ -626,7 +658,7 @@ class ProviderStore(
             contextTokens = settings.windowTokens ?: cfg.capabilities.contextTokens,
             compactionTriggerTokens = settings.triggerTokens,
         ))
-        modelFactory(configured, apiKey(cfg.id), listed?.endpoint, ClientSetup(
+        return modelFactory(configured, apiKey(cfg.id), listed?.endpoint, ClientSetup(
             headers(p?.sessionHeader, session), reasoningEffort = _roles.value.reasoningEffort(role),
             thinkingTypes = listed?.thinkingTypes, readTimeoutSeconds = settings?.readTimeoutSeconds,
         )).metered(source, usage, ::checkDailyBudget)
