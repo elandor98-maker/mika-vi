@@ -299,6 +299,8 @@ class ProviderDetailActions(
     val setDailyBudget: (Long?) -> Boolean = { false },
     /** 把这家默认的模型设为主模型(账号登录的详情里那一行)。 */
     val useAsMain: () -> Unit = {},
+    /** AI nội bộ: mở trang tải/quản lý mô hình GGUF chạy trên máy. */
+    val openLocalModels: () -> Unit = {},
 )
 
 /**
@@ -332,16 +334,29 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
                     }
                 }
                 ListRow(null, ModelsCopy.KIND) { RowValue(ModelsCopy.kindLabel(p.kind)) }
-                ListRow(null, ModelsCopy.BASE_URL) { RowValue(ModelsCopy.shortUrl(p.baseUrl)) }
-                ListRow(null, ModelsCopy.API_KEY, onClick = { changingKey = true }) {
-                    RowValue(if (p.id in ui.keyed) ModelsCopy.KEY_SAVED else ModelsCopy.KEY_NONE)
-                    RowValue(ModelsCopy.CHANGE, ValueTone.Link)
+                if (p.kind != ProviderConfig.Kind.Local) {
+                    ListRow(null, ModelsCopy.BASE_URL) { RowValue(ModelsCopy.shortUrl(p.baseUrl)) }
+                    ListRow(null, ModelsCopy.API_KEY, onClick = { changingKey = true }) {
+                        RowValue(if (p.id in ui.keyed) ModelsCopy.KEY_SAVED else ModelsCopy.KEY_NONE)
+                        RowValue(ModelsCopy.CHANGE, ValueTone.Link)
+                    }
                 }
             }
         }
         (state as? ListState.Failed)?.let { FooterNote(ModelSetupCopy.failed(it.message), color = c.bad) }
 
-        GroupCard {
+        if (p.kind == ProviderConfig.Kind.Local) {
+            GroupCard {
+                ListRow(
+                    MikaIcons.Spark, "Tải mô hình AI nội bộ",
+                    "Tải và quản lý mô hình GGUF chạy ngay trên máy",
+                    first = true, titleColor = c.accent, tone = TileTone.Accent,
+                    onClick = actions.openLocalModels,
+                ) { RowChevron() }
+            }
+        }
+
+        if (p.kind != ProviderConfig.Kind.Local) GroupCard {
             ListRow(
                 MikaIcons.Clock, stringResource(R.string.models_daily_token_budget),
                 p.dailyTokenBudget?.let(::tokenBudgetNumber) ?: stringResource(R.string.settings_token_budget_unlimited),
@@ -385,7 +400,7 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             )
             (retest as? ListState.Failed)?.let { FooterNote(it.message, Modifier.testTag("provider-retest-failed"), color = c.bad) }
         }
-        when {
+        if (p.kind != ProviderConfig.Kind.Local) when {
             // 跳过测试存下的那次没列过模型,不能拿它当「这家不提供列表」的证据
             p.models?.isEmpty() == true && !untested -> FooterNote(ModelsCopy.NO_LIST_NOTE)
             p.models == null && list.isEmpty() && state != ListState.Running -> FooterNote(ModelsCopy.NOT_LISTED)

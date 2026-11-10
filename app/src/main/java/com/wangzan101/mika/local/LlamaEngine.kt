@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
  */
 object LlamaEngine {
     /** Context token cua ban local (khop Capabilities cua LocalLlamaModel). */
-    const val N_CTX = 8192
+    const val N_CTX = 32768
 
     /** So luong suy luan: 4 luong la diem can bang toc do/nhiet tren Dimensity. */
     private const val N_THREADS = 4

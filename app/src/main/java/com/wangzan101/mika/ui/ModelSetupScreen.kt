@@ -168,6 +168,7 @@ fun ModelSetupScreen(
                 },
                 useAsMain = { vm.useAsMain(provider.id) },
                 setDailyBudget = { vm.setDailyTokenBudget(provider.id, it) },
+                openLocalModels = { openProvider = null; onOpenLocalModels?.invoke() },
             )
             if (allModels) {
                 BackHandler { allModels = false }
@@ -570,7 +571,7 @@ private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReason
         }
         // Bản Mika VI: thẻ mở trang mô hình AI nội bộ (GGUF chạy trên máy)
         if (onLocal != null) {
-            RoleCard(MikaIcons.Spark, "AI nội bộ (trên máy)", ModelsCopy.RoleLine("Mô hình GGUF trên máy", "Không cần API key, không cần mạng"), tag = "role-local", onClick = onLocal)
+            RoleCard(MikaIcons.Spark, "AI nội bộ (trên máy)", ModelsCopy.RoleLine("Tải mô hình GGUF về máy", "Chạy ngay trên máy — không cần API key, không cần mạng"), tag = "role-local", onClick = onLocal)
         }
     }
 }
