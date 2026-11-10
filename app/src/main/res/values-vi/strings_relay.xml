@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_transport">Từ xa</string>
+    <string name="relay_pair_title">Ghép đôi cổng chuyển tiếp từ xa</string>
+    <string name="relay_pair_sub">Tạo mã ghép đôi trên trang web của cổng chuyển tiếp, rồi nhập địa chỉ và mã của nó ở dưới.</string>
+    <string name="relay_gateway">Cổng chuyển tiếp</string>
+    <string name="relay_code">Mã ghép đôi</string>
+    <string name="relay_code_hint">Mã dùng một lần từ cổng chuyển tiếp của bạn</string>
+    <string name="relay_pair">Ghép đôi cổng chuyển tiếp</string>
+    <string name="relay_busy">Vui lòng đợi…</string>
+    <string name="relay_enable">Cho phép truy cập từ xa</string>
+    <string name="relay_disabled">Đã ghép đôi. Truy cập từ xa đang tắt</string>
+    <string name="relay_online">Đã kết nối cổng chuyển tiếp. Đang chờ yêu cầu CLI / MCP</string>
+    <string name="relay_connecting">Đang kết nối tới cổng chuyển tiếp từ xa…</string>
+    <string name="relay_offline">Mất kết nối. Đang tự kết nối lại</string>
+    <string name="relay_unauthorized">Ghép đôi đã hết hạn hoặc bị thu hồi. Hãy ghép đôi lại cổng chuyển tiếp</string>
+    <string name="relay_copy_address">Sao chép địa chỉ MCP</string>
+    <string name="relay_client_help">Sao chép cấu hình vào MCP client trên máy tính để kết nối.</string>
+    <string name="relay_unpair">Hủy ghép đôi cổng chuyển tiếp</string>
+    <string name="relay_unpair_body">Ngắt kết nối điện thoại này khỏi cổng chuyển tiếp. Cần có kết nối internet. Token truy cập của điện thoại giữ nguyên.</string>
+    <string name="relay_failed">Không hoàn tất được. Kiểm tra địa chỉ cổng chuyển tiếp, kết nối internet và mã ghép đôi. Nếu hủy ghép đôi thất bại, quyền truy cập đã tắt; hãy thử lại hoặc thu hồi điện thoại trên cổng chuyển tiếp.</string>
+    <string name="relay_notif_body">Truy cập từ xa đang bật. Mở Mika để kiểm tra kết nối cổng chuyển tiếp.</string>
+    <string name="relay_incompatible">Cập nhật Mika và cổng chuyển tiếp lên phiên bản khớp nhau</string>
+    <string name="relay_copy_gateway">Sao chép địa chỉ cổng chuyển tiếp</string>
+    <string name="relay_cli_help">Lưu token truy cập vào một tệp trên máy tính, rồi chạy lệnh kết nối ở trên.</string>
+    <string name="relay_intro">Cổng chuyển tiếp chuyển các yêu cầu CLI và MCP thường gửi qua Wi-Fi / LAN tới điện thoại của bạn để truy cập từ xa. Hãy triển khai nó trên máy chủ công khai của riêng bạn trước khi ghép đôi.</string>
+    <string name="relay_device_access">Cho phép đánh thức và mở khóa qua cổng chuyển tiếp</string>
+    <string name="relay_device_access_sub">Tắt theo mặc định. Cũng cần bật “Cho phép đánh thức và mở khóa từ xa” ở trang này. Khi cả hai cùng bật, bất kỳ ai có token truy cập đều có thể đánh thức và mở khóa điện thoại này qua internet.</string>
+</resources>

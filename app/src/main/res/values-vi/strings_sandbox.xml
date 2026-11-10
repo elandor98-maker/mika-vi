@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="install_check">Đang kiểm tra thiết bị</string>
+    <string name="install_extract">Đang giải nén</string>
+    <string name="install_configure">Đang cấu hình</string>
+    <string name="install_skills">Đang đồng bộ tập lệnh kỹ năng</string>
+    <string name="install_interrupted">Thiết lập bị gián đoạn; bạn có thể thử lại</string>
+    <string name="install_checksum">Mã kiểm tra của tệp không khớp</string>
+    <string name="install_unpack_failed">Không giải nén được môi trường; vui lòng cài lại Mika: %1$s</string>
+    <string name="install_unsupported">Thiết bị này không được hỗ trợ (cần arm64)</string>
+    <string name="install_no_space">Không đủ dung lượng: cần %1$d MB (còn trống %2$d MB)</string>
+    <string name="install_cannot_start">Môi trường không khởi động được: %1$s</string>
+    <string name="install_exit_code">mã thoát %1$d</string>
+    <string name="install_no_client">Thiếu lệnh mika (gói cài đặt không đầy đủ)</string>
+    <string name="sandbox_resetting">Đang đặt lại</string>
+    <string name="sandbox_incomplete">Tệp môi trường chưa đầy đủ; bạn có thể đặt lại trong Cài đặt → Nâng cao</string>
+    <string name="sandbox_not_finished">Thiết lập chưa hoàn tất; bạn có thể thử lại</string>
+    <string name="sandbox_network">Cho phép tập lệnh kết nối mạng</string>
+    <string name="sandbox_network_sub">Mặc định tắt</string>
+    <string name="sandbox_network_explain">Theo mặc định, Mika xử lý tệp và chạy tập lệnh ngoại tuyến. Khi bật tùy chọn này, tập lệnh có thể dùng mạng (ví dụ để tra cứu tài liệu hoặc bản đồ) và cũng có thể gửi tệp từ cuộc trò chuyện ra ngoài.</string>
+    <string name="sandbox_isolation_unavailable">Thiết bị này không thể giữ tập lệnh ngoại tuyến: Mika chỉ có thể xử lý tệp và chạy tập lệnh khi tùy chọn “Cho phép tập lệnh kết nối mạng” đang bật</string>
+    <string name="sandbox_reset_title">Đặt lại môi trường?</string>
+    <string name="sandbox_reset_body">Thao tác này sẽ xóa môi trường Mika dùng để xử lý tệp và tập lệnh, cùng các tệp đã tạo trong mỗi cuộc trò chuyện (kể cả tệp bạn đã đính kèm), rồi tự động thiết lập lại. Cuộc trò chuyện và cài đặt không bị ảnh hưởng.</string>
+    <string name="sandbox_broken">Thiết lập chưa hoàn tất: %1$s</string>
+    <string name="sandbox_reset_sub">Dùng khi có sự cố: xóa đi và thiết lập lại từ đầu</string>
+    <string name="sandbox_reset">Đặt lại môi trường</string>
+    <string name="reset">Đặt lại</string>
+</resources>
