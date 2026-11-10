@@ -40,6 +40,8 @@ sdkmanager "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "b
 
 # --- 4. Build ban perf (arm64) ------------------------------------------------
 set -o pipefail
+# gradlew day len GitHub qua API bi mat quyen chay (mode 100644), nen cap quyen o day.
+chmod +x gradlew
 ./gradlew :app:assemblePerf --console=plain 2>&1 | tee build-log.txt
 BUILD_RC=${PIPESTATUS[0]}
 
