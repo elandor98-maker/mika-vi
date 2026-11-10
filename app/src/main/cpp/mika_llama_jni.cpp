@@ -100,8 +100,8 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeLoadModel(
 
     const std::string path = jstring_to_std(env, jpath);
     llama_model_params model_params = llama_model_default_params();
-    // llama.cpp pinned revision configures mmap through load_mode; use the
-    // memory-mapped path for GGUF weights to avoid copying the full model.
+    // llama.cpp 0.9.0 bo 2 co use_mmap/use_mlock, thay bang load_mode;
+    // MMAP = map file model vao bo nho nhu truoc (mac dinh AUTO cung mmap).
     model_params.load_mode = LLAMA_LOAD_MODE_MMAP;
     g_model = llama_model_load_from_file(path.c_str(), model_params);
     if (!g_model) {
