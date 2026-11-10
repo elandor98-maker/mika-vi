@@ -26,7 +26,7 @@ android {
         buildConfigField("boolean", "BETA", "true")
         // Bản VI: APK chỉ đóng gói tài nguyên tiếng Anh + tiếng Việt cho nhẹ
         // (mã nguồn vẫn giữ đủ các ngôn ngữ; AppLanguage cũng chỉ cho chọn 2 ngôn ngữ này)
-        resConfigs += listOf("en", "vi")
+        resConfigs("en", "vi")
         // AI nội bộ (llama.cpp) chỉ biên dịch cho arm64 — đúng kiến trúc máy đích của bản này
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
