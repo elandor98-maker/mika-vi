@@ -100,7 +100,9 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeLoadModel(
 
     const std::string path = jstring_to_std(env, jpath);
     llama_model_params model_params = llama_model_default_params();
-    model_params.use_mmap = true;
+    // llama.cpp pinned revision configures mmap through load_mode; use the
+    // memory-mapped path for GGUF weights to avoid copying the full model.
+    model_params.load_mode = LLAMA_LOAD_MODE_MMAP;
     g_model = llama_model_load_from_file(path.c_str(), model_params);
     if (!g_model) {
         LOGE("khong nap duoc model: %s", path.c_str());
