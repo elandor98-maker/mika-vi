@@ -34,7 +34,7 @@ android {
                 arguments += listOf(
                     "-DBUILD_SHARED_LIBS=ON",
                     "-DGGML_NATIVE=OFF",
-                    "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16",
+                    "-DGGML_CPU_ARM_ARCH=armv8.6-a+dotprod+fp16+i8mm",
                     "-DLLAMA_BUILD_COMMON=ON",
                 )
             }

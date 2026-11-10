@@ -18,12 +18,14 @@ object LlamaNative {
     external fun nativeInit(nativeLibDir: String)
 
     /** 0 = ok, 1 = khong nap duoc model, 2 = khong tao duoc context. */
-    external fun nativeLoadModel(path: String, nCtx: Int, nThreads: Int): Int
+    external fun nativeLoadModel(path: String, nCtx: Int, nThreads: Int, nThreadsBatch: Int): Int
 
     /**
-     * Sinh van ban tu mot prompt da dinh dang san (ChatML).
+     * Sinh van ban tu mot prompt da dinh dang san (ChatML). Phan tien to cua
+     * prompt giong lan goi truoc duoc tai dung tu KV cache — chi xu ly phan moi.
      * Tra ve [so token prompt, so token da sinh, ly do dung] — ly do dung xem
-     * mika_llama_jni.cpp: 0 EOG, 1 het maxTokens, 2 day context, am = loi.
+     * mika_llama_jni.cpp: 0 EOG, 1 het maxTokens, 2 day context, am = loi
+     * (-4 = qua [timeLimitSec]).
      */
     external fun nativeGenerate(
         prompt: String,
@@ -32,6 +34,7 @@ object LlamaNative {
         topP: Float,
         topK: Int,
         repeatPenalty: Float,
+        timeLimitSec: Int,
         callback: LlamaTokenCallback,
     ): IntArray
 

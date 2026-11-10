@@ -72,6 +72,10 @@ class LocalLlamaModel(
         }
         when {
             result.finishReason == -1 -> throw ModelError.ContextTooLong()
+            result.finishReason == -4 -> throw ModelError.BadResponse(
+                "Mô hình AI nội bộ xử lý quá lâu (quá 5 phút) nên lượt này đã dừng lại. " +
+                    "Phần nội dung đã đọc được giữ lại trong bộ nhớ đệm — hãy gửi lại để nó làm tiếp.",
+            )
             result.finishReason < 0 -> throw ModelError.BadResponse(
                 "Mô hình AI nội bộ gặp lỗi khi xử lý (mã ${result.finishReason}). " +
                     "Hãy thử gửi lại; nếu vẫn lỗi, thử mô hình nhẹ hơn trong mục Mô hình.",

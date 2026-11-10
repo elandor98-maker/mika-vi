@@ -5,10 +5,19 @@
 //
 // Dinh dang prompt (ChatML cua Qwen2.5) va viec phan tich <tool_call> nam o
 // phia Kotlin (LocalLlamaModel); file nay chi lam suy luan thuan.
+//
+// Bo nho dem tien to (prefix cache): KV cache va day token tuong ung duoc giu
+// lai giua cac lan goi. Prompt cua Mika gom mot khoi he thong + cong cu rat
+// lon nhung gan nhu khong doi giua cac buoc trong mot tac vu, trong khi lich
+// su chi noi them vao cuoi — nen lan goi sau chi can xu ly phan token moi ke
+// tu diem khac biet dau tien, thay vi doc lai toan bo tu dau. Moi lan goi deu
+// co gioi han thoi gian: qua han thi dung va tra ma -4 thay vi treo im lang.
 
 #include <android/log.h>
 #include <jni.h>
 
+#include <algorithm>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -27,6 +36,10 @@ llama_context * g_ctx = nullptr;
 int g_n_ctx = 0;
 bool g_backend_ready = false;
 
+// Day token dang nam trong KV cache o seq 0, theo dung thu tu vi tri.
+// Invariant: g_cached_tokens[i] la token o vi tri i trong KV cache.
+std::vector<llama_token> g_cached_tokens;
+
 void llama_log_to_android(ggml_log_level level, const char * text, void *) {
     const int prio = level == GGML_LOG_LEVEL_ERROR ? ANDROID_LOG_ERROR
                    : level == GGML_LOG_LEVEL_WARN  ? ANDROID_LOG_WARN
@@ -44,6 +57,7 @@ void unload_locked() {
         g_model = nullptr;
     }
     g_n_ctx = 0;
+    g_cached_tokens.clear();
 }
 
 // Kiem tra chuoi UTF-8 hoan chinh (token co the cat giua mot ky tu nhieu byte).
@@ -95,7 +109,7 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeInit(JNIEnv * env, jobject, jst
 // 0 = ok, 1 = khong nap duoc model, 2 = khong tao duoc context
 extern "C" JNIEXPORT jint JNICALL
 Java_com_wangzan101_mika_local_LlamaNative_nativeLoadModel(
-        JNIEnv * env, jobject, jstring jpath, jint n_ctx, jint n_threads) {
+        JNIEnv * env, jobject, jstring jpath, jint n_ctx, jint n_threads, jint n_threads_batch) {
     unload_locked();
 
     const std::string path = jstring_to_std(env, jpath);
@@ -114,7 +128,7 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeLoadModel(
     ctx_params.n_batch = 512;
     ctx_params.n_ubatch = 512;
     ctx_params.n_threads = n_threads;
-    ctx_params.n_threads_batch = n_threads;
+    ctx_params.n_threads_batch = n_threads_batch;
     g_ctx = llama_init_from_model(g_model, ctx_params);
     if (!g_ctx) {
         LOGE("khong tao duoc context (n_ctx=%d)", n_ctx);
@@ -123,18 +137,19 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeLoadModel(
         return 2;
     }
     g_n_ctx = n_ctx;
-    LOGI("da nap model %s, n_ctx=%d, threads=%d", path.c_str(), n_ctx, n_threads);
+    LOGI("da nap model %s, n_ctx=%d, threads=%d/%d", path.c_str(), n_ctx, n_threads, n_threads_batch);
     return 0;
 }
 
 // Tra ve [so token prompt, so token da sinh, ly do dung]:
 // ly do dung: 0 = gap token ket thuc luot (EOG), 1 = het maxTokens,
 //             2 = context day, -1 = prompt dai hon context, -2 = loi decode,
-//             -3 = phia Kotlin huy giua chung
+//             -3 = phia Kotlin huy giua chung, -4 = qua gioi han thoi gian
 extern "C" JNIEXPORT jintArray JNICALL
 Java_com_wangzan101_mika_local_LlamaNative_nativeGenerate(
         JNIEnv * env, jobject, jstring jprompt, jint max_tokens,
         jfloat temp, jfloat top_p, jint top_k, jfloat repeat_penalty,
+        jint time_limit_sec,
         jobject callback) {
     auto make_result = [&](int prompt_tokens, int gen_tokens, int reason) {
         jintArray arr = env->NewIntArray(3);
@@ -164,12 +179,39 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeGenerate(
         return make_result(n_prompt, 0, -2);
     }
 
-    llama_memory_clear(llama_get_memory(g_ctx), true);
+    const auto t_start = std::chrono::steady_clock::now();
+    auto over_time = [&]() {
+        if (time_limit_sec <= 0) return false;
+        return std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::steady_clock::now() - t_start).count() >= time_limit_sec;
+    };
+
+    // --- Tai dung tien to: giu phan dau giong het voi lan goi truoc ---
+    const llama_memory_t mem = llama_get_memory(g_ctx);
+    int n_common = 0;
+    const int n_cached = (int) g_cached_tokens.size();
+    while (n_common < n_cached && n_common < n_prompt &&
+           g_cached_tokens[n_common] == prompt_tokens[n_common]) {
+        n_common++;
+    }
+    // Neu toan bo prompt da nam san trong KV thi van phai giai ma lai token
+    // cuoi: logits hien tai cua context thuoc ve token sinh ra sau prompt o
+    // lan truoc, khong phai cua token cuoi prompt.
+    if (n_common == n_prompt) n_common = n_prompt - 1;
+    llama_memory_seq_rm(mem, 0, n_common, -1);
+    LOGI("cache: giu %d/%d token, xu ly moi %d", n_common, n_prompt, n_prompt - n_common);
+    int pos = n_common;
 
     common_batch batch(g_ctx);
-    int pos = 0;
     const int batch_size = 512;
-    for (int i = 0; i < n_prompt; i += batch_size) {
+    for (int i = n_common; i < n_prompt; i += batch_size) {
+        if (over_time()) {
+            // KV dang chua dung prompt_tokens[0..pos): dong bo lai invariant
+            // de lan goi sau tiep tuc duoc tu cho nay thay vi lam lai tu dau.
+            g_cached_tokens.assign(prompt_tokens.begin(), prompt_tokens.begin() + pos);
+            LOGE("qua thoi gian khi doc prompt o token %d/%d", pos, n_prompt);
+            return make_result(n_prompt, 0, -4);
+        }
         const int cur = std::min(n_prompt - i, batch_size);
         batch.clear();
         for (int j = 0; j < cur; j++) {
@@ -177,10 +219,13 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeGenerate(
         }
         if (llama_process(g_ctx, LLAMA_PROCESS_TYPE_DECODE, batch.get()) != 0) {
             LOGE("decode that bai o giai doan doc prompt");
+            g_cached_tokens.assign(prompt_tokens.begin(), prompt_tokens.begin() + pos);
             return make_result(n_prompt, 0, -2);
         }
         pos += cur;
     }
+    // Prefill xong: KV chua dung toan bo prompt.
+    g_cached_tokens = prompt_tokens;
 
     common_params_sampling sparams;
     sparams.temp = temp;
@@ -198,6 +243,7 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeGenerate(
 
     while (n_gen < max_tokens) {
         if (pos >= g_n_ctx - 4) { reason = 2; break; }
+        if (over_time()) { reason = -4; break; }
 
         const llama_token token = common_sampler_sample(sampler, g_ctx, -1);
         common_sampler_accept(sampler, token, true);
@@ -211,6 +257,7 @@ Java_com_wangzan101_mika_local_LlamaNative_nativeGenerate(
         }
         pos++;
         n_gen++;
+        g_cached_tokens.push_back(token);
 
         if (llama_vocab_is_eog(vocab, token)) { reason = 0; break; }
 

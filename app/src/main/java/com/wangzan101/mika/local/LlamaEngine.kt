@@ -18,8 +18,18 @@ object LlamaEngine {
     /** Context token cua ban local (khop Capabilities cua LocalLlamaModel). */
     const val N_CTX = 32768
 
-    /** So luong suy luan: 4 luong la diem can bang toc do/nhiet tren Dimensity. */
-    private const val N_THREADS = 4
+    /** So luong khi sinh tung token: 6 luong tren con chip 8 nhan cua may. */
+    private const val N_THREADS = 6
+
+    /** So luong khi doc prompt (prefill): dung het 8 nhan cho nhanh. */
+    private const val N_THREADS_BATCH = 8
+
+    /**
+     * Gioi han cung cho mot lan goi mo hinh. Qua muc nay native dung lai va
+     * bao loi ro rang thay vi treo im lang; phan tien to da xu ly van nam
+     * trong bo nho dem nen lan goi sau di tiep duoc.
+     */
+    private const val TIME_LIMIT_SEC = 300
 
     private val mutex = Mutex()
     private var initialized = false
@@ -42,7 +52,7 @@ object LlamaEngine {
         ensureLoadedLocked(context, modelFile)
         val result = withContext(Dispatchers.Default) {
             LlamaNative.nativeGenerate(
-                prompt, maxTokens, temp, topP, topK, repeatPenalty,
+                prompt, maxTokens, temp, topP, topK, repeatPenalty, TIME_LIMIT_SEC,
                 LlamaTokenCallback { piece -> onPiece(piece) },
             )
         }
@@ -59,7 +69,7 @@ object LlamaEngine {
             LlamaNative.nativeInit(context.applicationInfo.nativeLibraryDir)
             initialized = true
         }
-        val rc = LlamaNative.nativeLoadModel(modelFile.absolutePath, N_CTX, N_THREADS)
+        val rc = LlamaNative.nativeLoadModel(modelFile.absolutePath, N_CTX, N_THREADS, N_THREADS_BATCH)
         if (rc != 0) {
             loadedPath = null
             throw ModelError.BadResponse(
