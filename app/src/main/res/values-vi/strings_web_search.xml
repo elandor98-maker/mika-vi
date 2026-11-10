@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="web_search_title">Tìm kiếm web</string>
+    <string name="web_search_provider">Dịch vụ tìm kiếm</string>
+    <string name="web_search_note_you">Dùng được không cần key (miễn phí, 100 lượt tìm kiếm mỗi ngày); có key thì dùng API trả phí.</string>
+    <string name="web_search_searxng_url">URL của instance</string>
+    <string name="web_search_note_jina">Cần API key. Kết quả lấy từ tìm kiếm Jina (s.jina.ai).</string>
+    <string name="web_search_note_exa">Cần API key. Kết quả lấy từ tìm kiếm Exa (api.exa.ai).</string>
+    <string name="web_search_note_searxng">Instance SearXNG của riêng bạn; không cần key. Instance phải cho phép xuất JSON (thêm json vào search.formats trong settings.yml).</string>
+    <string name="web_search_api_key_required">API key (bắt buộc)</string>
+    <string name="web_search_missing_key">%1$s cần API key để hoạt động.</string>
+    <string name="web_search_get_key">Lấy API key</string>
+    <string name="web_search_privacy">Key được lưu mã hóa trên điện thoại này. Kết quả tìm kiếm được coi là không đáng tin cậy.</string>
+    <string name="web_search_row_sub">Dịch vụ tìm kiếm tùy chọn; tìm kiếm bằng trình duyệt luôn khả dụng</string>
+    <string name="web_search_enabled">Bật tìm kiếm web</string>
+    <string name="web_search_api_key">API key (không bắt buộc)</string>
+    <string name="web_search_invalid_endpoint">Nhập một URL HTTP hoặc HTTPS không có tham số truy vấn.</string>
+    <string name="web_search_action">Tìm kiếm trên web</string>
+</resources>

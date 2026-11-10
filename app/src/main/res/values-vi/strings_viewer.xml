@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="viewer_no_open_app">Không có ứng dụng nào mở được tệp này</string>
+    <string name="viewer_no_share_app">Không có ứng dụng nào chia sẻ được tệp này</string>
+    <string name="viewer_open_elsewhere">Mở bằng ứng dụng khác</string>
+    <string name="viewer_unsupported">Không xem được tệp này trong Mika.</string>
+    <string name="viewer_read_error">Đã xảy ra lỗi khi đọc tệp này.</string>
+    <string name="viewer_page">Trang %1$d</string>
+    <string name="viewer_truncated">Tệp này lớn; chỉ hiển thị phần đầu.</string>
+</resources>

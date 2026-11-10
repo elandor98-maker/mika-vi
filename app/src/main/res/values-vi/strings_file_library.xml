@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="file_library_title">Tệp</string>
+    <string name="file_library_search">Tìm kiếm tên tệp</string>
+    <string name="file_library_all">Tất cả cuộc trò chuyện</string>
+    <string name="file_library_current">Cuộc trò chuyện hiện tại</string>
+    <string name="file_library_sources">Tất cả nguồn</string>
+    <string name="file_library_input">Tệp đính kèm</string>
+    <string name="file_library_output">Tệp đã tạo</string>
+    <string name="file_library_loading">Đang tải tệp…</string>
+    <string name="file_library_empty">Không tìm thấy tệp nào</string>
+    <string name="file_library_missing">Không khả dụng</string>
+    <string name="file_library_available">Khả dụng</string>
+    <string name="file_library_open">Mở</string>
+    <string name="file_library_share">Chia sẻ</string>
+    <string name="file_library_add">Thêm vào bản nháp</string>
+    <string name="file_library_choose">Chọn cuộc trò chuyện</string>
+    <string name="file_library_new">Cuộc trò chuyện mới</string>
+    <string name="file_library_error">Không truy cập được tệp này</string>
+    <string name="file_library_retry">Thử lại</string>
+    <string name="file_library_partial">Một số cuộc trò chuyện không đọc được.</string>
+    <string name="file_library_unknown_time">Không rõ thời gian</string>
+    <string name="file_library_draft_saved">Đã thêm vào bản nháp của cuộc trò chuyện đã chọn. Hãy chuyển sang cuộc trò chuyện đó khi nó khả dụng.</string>
+    <string name="file_library_load_failed">Không tải được tệp.</string>
+</resources>
