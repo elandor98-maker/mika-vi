@@ -10,6 +10,7 @@ import com.wangzan101.mika.core.uistate.ActionResult
 import com.wangzan101.mika.core.uistate.ScreenPort
 import com.wangzan101.mika.core.uistate.SystemAction
 import com.wangzan101.mika.core.uistate.SystemActionResult
+import com.wangzan101.mika.core.uistate.TorchResult
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -40,6 +41,9 @@ class SystemActionToolsTest {
             bulkAsked += events
             return bulkAnswer(events)
         }
+        val torchAsked = mutableListOf<Boolean>()
+        var torchAnswer: (Boolean) -> TorchResult = { on -> TorchResult(ActionResult.Ok(), flashAvailable = true, torchOn = on) }
+        override suspend fun setTorch(on: Boolean): TorchResult { torchAsked += on; return torchAnswer(on) }
     }
 
     private fun call(name: String, args: String) = Part.ToolCall("c", name, args)
@@ -197,6 +201,36 @@ class SystemActionToolsTest {
             screen.bulkAnswer = { SystemActionResult(ActionResult.Ok(), eventUris = uris) }
             val r = d.execute(call("phone_calendar_bulk_insert", """{"events":[{"title":"t","start":"2026-11-02T14:30"}]}""")).content
             assertEquals("calendar_write_unconfirmed", r.s("error"))
+        }
+    }
+
+    @Test fun torchIsSetDirectlyThroughThePort() = runTest {
+        val screen = SystemScreen { error("system actions must not be used for the torch") }
+        val d = toolDispatcher(screen)
+        val on = d.execute(call("phone_set_torch", """{"on":true}""")).content
+        assertEquals("true", on.s("ok"))
+        assertEquals("on", on.s("state"))
+        assertEquals("true", on.s("flashAvailable"))
+        val off = d.execute(call("phone_set_torch", """{"on":false}""")).content
+        assertEquals("off", off.s("state"))
+        assertEquals(listOf(true, false), screen.torchAsked)
+        assertTrue(screen.asked.isEmpty())
+        // 缺 on 参数:不到端口
+        val bad = d.execute(call("phone_set_torch", """{}""")).content
+        assertEquals("false", bad.s("ok"))
+        assertEquals("invalid_arguments", bad.s("error"))
+        assertEquals(listOf(true, false), screen.torchAsked)
+    }
+
+    @Test fun torchFailuresExplainThemselves() = runTest {
+        val screen = SystemScreen { error("unused") }
+        val d = toolDispatcher(screen)
+        for (code in listOf(TorchResult.NO_FLASH, TorchResult.CAMERA_IN_USE, TorchResult.UNAVAILABLE)) {
+            screen.torchAnswer = { TorchResult(ActionResult.Failed(code), flashAvailable = code != TorchResult.NO_FLASH) }
+            val r = d.execute(call("phone_set_torch", """{"on":true}""")).content
+            assertEquals(code, "false", r.s("ok"))
+            assertEquals(code, code, r.s("error"))
+            assertEquals(code, FAILURE_MESSAGES.getValue(code), r.s("message"))
         }
     }
 

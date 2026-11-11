@@ -58,7 +58,7 @@ object SeedPack {
         ),
         SeedFact(
             MemoryKind.preference,
-            "Việc bật/tắt đơn giản phải đi đường ngắn nhất qua giao diện; thông tin biến động như giá tiền số phải đối chiếu ít nhất 2 nguồn trước khi khẳng định.",
+            "Việc bật/tắt đơn giản phải đi đường ngắn nhất (đèn pin dùng công cụ hệ thống chuyên dụng, không vòng qua giao diện); thông tin biến động như giá tiền số phải đối chiếu ít nhất 2 nguồn trước khi khẳng định.",
             listOf("bật tắt", "đường ngắn nhất", "giá tiền số", "đối chiếu 2 nguồn"),
         ),
     )
@@ -88,20 +88,20 @@ object SeedPack {
         skill(
             name = "bat-tat-den-pin",
             display = "Bật/tắt đèn pin",
-            description = "Bật hoặc tắt đèn pin trên máy HyperOS bằng ô Đèn pin trong bảng cài đặt nhanh, đường ngắn nhất",
+            description = "Bật hoặc tắt đèn pin bằng công cụ hệ thống chuyên dụng của Phòng AI, một lần gọi là xong",
             terms = listOf("đèn pin", "flashlight", "bật đèn pin", "tắt đèn pin"),
             body = """
                 ## Cách làm
 
-                1. Trên màn hình tác vụ, mở bảng cài đặt nhanh (vuốt từ cạnh trên màn hình xuống để mở bảng thông báo/cài đặt nhanh của HyperOS).
-                2. Chạm ô «Đèn pin» một lần để đổi trạng thái.
-                3. Kiểm tra trạng thái đã đổi đúng như yêu cầu (ô Đèn pin sáng lên khi đang bật, đèn sau máy sáng/tắt theo).
-                4. Đạt trạng thái xong thì DỪNG NGAY và báo lại cho người dùng.
+                1. Dùng công cụ hệ thống chuyên dụng để đặt đèn pin đúng trạng thái người dùng yêu cầu (bật hoặc tắt) — một lần gọi là xong, không mở giao diện nào.
+                2. Đọc kết quả: trạng thái sau khi đặt đã đúng như yêu cầu thì DỪNG NGAY và báo lại cho người dùng.
+                3. Chỉ khi công cụ báo lỗi (máy không có đèn pin, hoặc đèn đang bị ứng dụng camera chiếm) mới dùng đường dự phòng: mở TRUNG TÂM ĐIỀU KHIỂN bằng cách vuốt từ cạnh TRÊN-PHẢI của màn hình xuống, rồi chạm ô «Đèn pin» một lần. (Vuốt từ phía trên-trái hoặc giữa chỉ mở bảng THÔNG BÁO — ở đó không có ô bật/tắt nào, đừng tìm ô Đèn pin trong bảng thông báo.)
 
                 ## Không làm
 
+                - Không mở trung tâm điều khiển hay ứng dụng camera để mò đèn pin khi công cụ chuyên dụng đang dùng được — đó chỉ là đường dự phòng.
                 - Không dùng dumpsys, không soi service/process/receiver/log hệ thống để bật đèn pin.
-                - Chỉ khi đường trực tiếp trên đây thất bại ít nhất 2 lần mới chuyển sang chẩn đoán bằng shell/hệ thống.
+                - Chỉ khi cả công cụ lẫn đường dự phòng đều thất bại ít nhất 2 lần mới chuyển sang chẩn đoán bằng shell/hệ thống.
             """,
             now = now,
         ),

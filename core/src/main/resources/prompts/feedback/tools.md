@@ -147,6 +147,15 @@ That app cannot receive shared text (it has no screen for an Android text share)
 ## failure.not_supported
 No app on this phone takes this standard Android action. Do not retry it: open the clock or calendar app with phone_launch_app and do it on its screens instead.
 
+## failure.no_flash
+This phone has no flashlight (no camera flash that can stay on as a torch), so there is nothing to switch. Tell the user; do not look for the flashlight in settings, the camera app or shell commands.
+
+## failure.camera_in_use
+The camera or flash is busy in another app right now, so the torch could not be set. Do not retry in a loop and do not explore services or shell commands for it: either ask the user to close the camera app, or use the quick-settings flashlight tile instead.
+
+## failure.torch_unavailable
+The flashlight is temporarily unavailable (the system refused the torch just now). Do not explore services or shell commands for it: fall back to the quick-settings flashlight tile, or tell the user it could not be switched.
+
 ## failure.calendar_permission_required
 Android has not granted Phòng AI calendar access, so no events were written by the bulk tool. Use phone_add_calendar_event and save each event in the calendar app, or ask the user to grant calendar access in Android's app settings before trying the bulk tool again.
 

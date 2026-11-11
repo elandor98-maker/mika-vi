@@ -142,6 +142,23 @@ data class SystemCommandResult(val exitCode: Int, val output: String)
 /** 输入后读回输入框的核对结果;读不回来(密码框、读不到节点)为 UNKNOWN。 */
 enum class Verification(val wire: String) { MATCH("match"), MISMATCH("mismatch"), UNKNOWN("unknown") }
 
+/**
+ * [ScreenPort.setTorch] 的结果:[result] 成功为 Ok;失败原因见 [NO_FLASH](这台设备没有能当手电筒的闪光灯)、
+ * [CAMERA_IN_USE](相机/闪光灯正被别的 App 占着)、[UNAVAILABLE](系统暂时不让设)。
+ * [flashAvailable]:这台设备有没有能当手电筒用的闪光灯;[torchOn]:调用之后手电筒的实际状态,失败或读不到为 null。
+ */
+data class TorchResult(
+    val result: ActionResult,
+    val flashAvailable: Boolean = false,
+    val torchOn: Boolean? = null,
+) {
+    companion object {
+        const val NO_FLASH = "no_flash"
+        const val CAMERA_IN_USE = "camera_in_use"
+        const val UNAVAILABLE = "torch_unavailable"
+    }
+}
+
 sealed interface ActionResult {
     /**
      * 动作已发出。其余字段是端口事后核实到的事实,null/false 表示没有核实或不适用:
@@ -280,6 +297,14 @@ interface ScreenPort {
      */
     suspend fun bulkCalendarInsert(events: List<SystemAction.AddCalendarEvent>): SystemActionResult =
         SystemActionResult(ActionResult.Failed(SystemActionResult.NOT_SUPPORTED))
+
+    /**
+     * 直接经 CameraManager 设手电筒(torch)的开关:[on] 是要设成的状态。不经 intent、不打开任何界面、
+     * 不用虚拟屏,也不读屏核对——设成功时 [TorchResult.torchOn] 就是设完的状态。
+     * 没有闪光灯报 [TorchResult.NO_FLASH],闪光灯被占用报 [TorchResult.CAMERA_IN_USE]。
+     * 不支持的端口返回 unsupported。
+     */
+    suspend fun setTorch(on: Boolean): TorchResult = TorchResult(ActionResult.Failed("unsupported"))
 
     /**
      * 把编号 [ref] 那个滚轮(或滚轮里的一项)转到显示 [value]:在端口里一次做完(能输入就输入,能无障碍滚就一格格滚,

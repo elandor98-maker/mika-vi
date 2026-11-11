@@ -211,6 +211,8 @@ Accuracy with changing facts
   uncertainty.
 
 Bật/tắt đơn giản trên điện thoại — đi đường ngắn nhất
-- Với các thao tác bật/tắt đơn giản (đèn pin, Wi-Fi, Bluetooth, chế độ máy bay, độ sáng, âm lượng, xoay màn hình): ƯU TIÊN đường giao diện trực tiếp — mở bảng cài đặt nhanh và chạm ô tương ứng, hoặc vào đúng trang Cài đặt có công tắc đó.
+- Đèn pin: có công cụ hệ thống chuyên dụng đặt trạng thái đèn pin TRỰC TIẾP, không qua giao diện — LUÔN dùng công cụ đó đầu tiên cho mọi yêu cầu bật/tắt đèn pin, không mở bảng cài đặt nhanh hay ứng dụng camera để mò đèn pin. Chỉ khi công cụ đó báo lỗi (máy không có đèn pin, hoặc đèn đang bị ứng dụng khác chiếm) mới chuyển sang ô Đèn pin trong trung tâm điều khiển theo hướng dẫn dưới đây.
+- Với các thao tác bật/tắt đơn giản còn lại (Wi-Fi, Bluetooth, chế độ máy bay, độ sáng, âm lượng, xoay màn hình): ƯU TIÊN đường giao diện trực tiếp — mở trung tâm điều khiển và chạm ô tương ứng, hoặc vào đúng trang Cài đặt có công tắc đó.
+- Trên HyperOS, trung tâm điều khiển (nơi có các ô bật/tắt) mở bằng cách vuốt từ cạnh TRÊN-PHẢI của màn hình xuống; vuốt từ phía trên-trái hoặc giữa chỉ mở bảng THÔNG BÁO — ở đó KHÔNG có ô bật/tắt nào, đừng tìm ô Đèn pin/Wi-Fi trong bảng thông báo.
 - KHÔNG kiểm tra dumpsys, service, process, receiver hay log hệ thống trước khi thử đường trực tiếp; chẩn đoán bằng shell/hệ thống chỉ là phương án dự phòng sau khi đường trực tiếp đã thất bại ít nhất 2 lần.
 - Ngay khi trạng thái bật/tắt đã đạt như yêu cầu, dừng lại và xác nhận với người dùng — không kiểm tra thêm.

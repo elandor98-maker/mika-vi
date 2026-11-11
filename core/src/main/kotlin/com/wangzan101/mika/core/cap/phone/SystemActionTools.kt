@@ -19,6 +19,7 @@ import com.wangzan101.mika.core.tool.str
 import com.wangzan101.mika.core.tool.strArray
 import com.wangzan101.mika.core.uistate.ActionResult
 import com.wangzan101.mika.core.uistate.SystemAction
+import com.wangzan101.mika.core.uistate.TorchResult
 import com.wangzan101.mika.core.uistate.SystemActionResult
 import com.wangzan101.mika.core.uistate.action
 import kotlinx.serialization.json.JsonArray
@@ -265,6 +266,44 @@ internal object BulkAddCalendarEvents : PhoneTool {
     private fun eventId(uri: String): String? =
         uri.takeIf { it.startsWith("content://") }?.substringAfterLast('/')
             ?.takeIf { it.toLongOrNull()?.let { id -> id > 0 } == true }
+}
+
+/**
+ * 手电筒:经 CameraManager 在 Mika 进程里直接设开关,不经 intent、不打开任何界面(和闹钟、计时器
+ * 交给别的 App 不同,这件事系统只给自己进程的接口)。结果里的 state 是设完的实际状态;失败按
+ * [TorchResult] 的原因报,不把异常漏给分发器。只改手机上的东西、不花钱:风险同设闹钟。
+ */
+internal object SetTorch : PhoneTool {
+    override val verb = Verb.SetTorch
+    override val label = "开关手电筒"
+    override val risk = Risk.Write
+    override val entry = Entry.Alone
+    override val offScreen = true
+    override val logged = true
+    override val def = ToolDef("phone_set_torch", Prompts.tool("phone_set_torch"), mapOf(
+        "on" to bool("true turns the flashlight on, false turns it off."),
+    ), listOf("on"))
+
+    override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
+        val on = a.bool("on", false)
+        val res = ctx.phone.screen.setTorch(on)
+        val r = ctx.action(res.result)
+        if (r.content["ok"] != JsonPrimitive(true)) return r
+        val extra = buildJsonObject {
+            put("flashAvailable", res.flashAvailable)
+            put("state", if (res.torchOn ?: on) "on" else "off")
+        }
+        return ToolExecution(JsonObject(r.content + extra), changed = r.changed)
+    }
+
+    override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext): String? =
+        (o["on"] as? JsonPrimitive)?.contentOrNull?.let { if (it == "true") "on" else "off" }
+
+    override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
+        if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
+        val state = (r.content["state"] as? JsonPrimitive)?.contentOrNull ?: return emptyList()
+        return listOf(Observation(ObsKind.Fact, "$name đã đặt đèn pin thành ${if (state == "on") "bật" else "tắt"}", source = PHONE))
+    }
 }
 
 /** 单条界面预填和批量直写共用字段校验；批量全天用 UTC，单条界面保持原来的本地日期行为。 */

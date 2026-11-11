@@ -10,6 +10,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Path
+import android.hardware.camera2.CameraAccessException
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.SystemClock
@@ -43,6 +46,7 @@ import com.wangzan101.mika.core.uistate.VisibleTextLine
 import com.wangzan101.mika.core.uistate.SystemCommandResult
 import com.wangzan101.mika.core.uistate.SystemAction
 import com.wangzan101.mika.core.uistate.SystemActionResult
+import com.wangzan101.mika.core.uistate.TorchResult
 import com.wangzan101.mika.core.uistate.WheelOutcome
 import com.wangzan101.mika.cap.phone.shell.AsciiTextKeys
 import com.wangzan101.mika.cap.phone.shell.SystemIntents
@@ -1454,6 +1458,36 @@ class AndroidScreen(
 
     override suspend fun bulkCalendarInsert(events: List<SystemAction.AddCalendarEvent>): SystemActionResult =
         withContext(Dispatchers.IO) { CalendarBulkWriter.insert(a11y, events) }
+
+    /**
+     * 手电筒直接经 CameraManager 在本进程里设:不经 intent、不用虚拟屏,也不查谁接手。
+     * 挑第一个带闪光灯的摄像头;没有报 [TorchResult.NO_FLASH]。setTorchMode 抛出的相机异常
+     * 按原因翻成结果码,不漏给调用方。setTorchMode 不需要 FLASHLIGHT 权限(清单里不加)。
+     */
+    override suspend fun setTorch(on: Boolean): TorchResult = withContext(Dispatchers.IO) {
+        val cameras = a11y.getSystemService(CameraManager::class.java)
+            ?: return@withContext TorchResult(ActionResult.Failed("unsupported"))
+        val id = runCatching {
+            cameras.cameraIdList.firstOrNull { cid ->
+                cameras.getCameraCharacteristics(cid).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull() ?: return@withContext TorchResult(ActionResult.Failed(TorchResult.NO_FLASH))
+        try {
+            cameras.setTorchMode(id, on)
+            TorchResult(ActionResult.Ok(), flashAvailable = true, torchOn = on)
+        } catch (e: CameraAccessException) {
+            val code = when (e.reason) {
+                CameraAccessException.CAMERA_IN_USE, CameraAccessException.MAX_CAMERAS_IN_USE -> TorchResult.CAMERA_IN_USE
+                else -> TorchResult.UNAVAILABLE
+            }
+            TorchResult(ActionResult.Failed(code), flashAvailable = true)
+        } catch (e: IllegalArgumentException) {
+            // 挑完之后摄像头列表变了(极少):当作没有可用的闪光灯
+            TorchResult(ActionResult.Failed(TorchResult.NO_FLASH))
+        } catch (e: SecurityException) {
+            TorchResult(ActionResult.Failed(TorchResult.UNAVAILABLE), flashAvailable = true)
+        }
+    }
 
     private fun hintNotInFront(top: String?, expected: String) =
         "$expected took the action, but the screen shows ${top ?: "no app yet"}. Observe before acting."
