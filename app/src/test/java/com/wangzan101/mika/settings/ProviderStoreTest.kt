@@ -1291,6 +1291,7 @@ class ProviderStoreTest {
         val collectJob = launch { s.failoverNotices.collect { notices += it } }
         delay(10) // cho bên thu kịp đăng ký trước khi chạy (thời gian ảo của runTest)
         s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        runCurrent() // SharedFlow phát bằng tryEmit: bên thu chỉ chạy khi lịch ảo nhường CPU; không có dòng này thì notices vẫn rỗng lúc kiểm tra
         collectJob.cancel()
 
         // Thông báo chuyển key: hãng + số key ở cả hai vế
