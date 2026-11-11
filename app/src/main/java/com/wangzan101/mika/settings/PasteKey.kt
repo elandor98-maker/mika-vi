@@ -28,9 +28,10 @@ object PasteKey {
             k.startsWith("AIza") -> byLabel("Gemini")
             k.startsWith("AQ.") -> byLabel("Gemini")
             k.startsWith("csk-") -> byLabel("Cerebras")
-            // `sk-` chung: gán cho mẫu OpenAI (mẫu có sẵn trong danh sách); hãng khác cũng dùng
-            // tiền tố này (Anthropic là sk-ant-, không khớp) — theo đúng chỉ định của bản v3.3.
-            k.startsWith("sk-") -> byLabel("OpenAI")
+            // `sk-` chung: gán cho mẫu OpenAI (mẫu có sẵn trong danh sách). Ngoại lệ: `sk-ant-`
+            // là Key Anthropic — KHÔNG được nhận nhầm thành OpenAI (Anthropic không có trong
+            // mẫu dán key; trả về null để giao diện thử gọi từng hãng rồi mới báo không nhận ra).
+            k.startsWith("sk-") && !k.startsWith("sk-ant-") -> byLabel("OpenAI")
             else -> null
         }
     }

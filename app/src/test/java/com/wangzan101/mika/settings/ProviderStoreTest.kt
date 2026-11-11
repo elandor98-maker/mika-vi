@@ -218,7 +218,9 @@ class ProviderStoreTest {
         val original = file.readText()
         assertNull(s.modelFor(ModelRole.Main)!!.capabilities.compactionTriggerTokens)
         val entries = """{"m1":{"windowTokens":1000000},"m2":{"triggerTokens":600000},"bad":{"triggerTokens":{}}}"""
-        file.writeText(original.replace("\"services\":[{", "\"services\":[{\"contextSettings\":$entries,"))
+        // Ghi vào đúng mục service của nhà vừa nối (theo id của nó): mục đầu tiên trong file là
+        // nhà AI nội bộ mà app tạo sẵn khi cài mới, không phải nhà đang test.
+        file.writeText(original.replace("\"id\":\"${p.id}\"", "\"id\":\"${p.id}\",\"contextSettings\":$entries"))
         assertEquals(mapOf("m1" to ModelContextSettings(1_000_000), "m2" to ModelContextSettings(triggerTokens = 600_000)),
             store().provider(p.id)!!.contextSettings)
     }
@@ -483,18 +485,22 @@ class ProviderStoreTest {
         assertTrue("连上了还没选模型", s.list().isEmpty())
         assertNull(s.roles.value.main)
         val reopened = store()
-        assertEquals(listOf(p), reopened.providers.value)
-        assertEquals(listed, reopened.providers.value.single().models)
+        // Cài mới tạo sẵn một nhà AI nội bộ (xem ProviderStore.seedLocalDefault) nên danh sách
+        // có hai nhà: nhà nội bộ đứng trước, nhà vừa nối đứng sau.
+        assertEquals(listOf(ProviderStore.LOCAL_PROVIDER_NAME, p.name), reopened.providers.value.map { it.name })
+        assertEquals(p, reopened.provider(p.id))
+        assertEquals(listed, reopened.provider(p.id)!!.models)
         assertEquals("sk-d", reopened.providerKey(p.id))
         // 同一家再连一次:更新 Key 和列表,不重复添加
         val again = s.connect("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com/", "sk-new", listOf(ListedModel("c")))
         assertEquals(p.id, again.id)
-        assertEquals(1, s.providers.value.size)
+        // Nối lại cùng một nhà không nhân đôi nó (ngoài nhà AI nội bộ tạo sẵn khi cài mới).
+        assertEquals(1, s.providers.value.count { it.id == p.id })
         assertEquals("sk-new", s.providerKey(p.id))
-        assertEquals(listOf("c"), store().providers.value.single().models!!.map { it.id })
+        assertEquals(listOf("c"), store().provider(p.id)!!.models!!.map { it.id })
         // 没列过的是 null,列过但没有的是空列表
         s.rememberModels(p.id, emptyList())
-        assertEquals(emptyList<ListedModel>(), store().providers.value.single().models)
+        assertEquals(emptyList<ListedModel>(), store().provider(p.id)!!.models)
     }
 
     // ---------- 跳过测试直接存下 ----------
@@ -599,7 +605,8 @@ class ProviderStoreTest {
         assertEquals(listOf("other"), s.list().map { it.id })
         assertEquals(RoleChoices(main = "other", vision = RoleChoice.Off, light = RoleChoice.SameAsMain), s.roles.value)
         assertNull(s.providerKey(p.id))
-        assertEquals(listOf("P other"), s.providers.value.map { it.name })
+        // Nhà AI nội bộ tạo sẵn khi cài mới vẫn ở đó; chỉ nhà vừa xóa là biến mất.
+        assertEquals(listOf(ProviderStore.LOCAL_PROVIDER_NAME, "P other"), s.providers.value.map { it.name })
         // 重开后数据一致
         val reopened = store()
         assertEquals(listOf("other"), reopened.list().map { it.id })
@@ -660,7 +667,9 @@ class ProviderStoreTest {
         assertEquals(listOf(ds.id, local.id), s.list().map { it.providerId })
         assertEquals("deepseek-reasoner", s.configFor(ModelRole.Main)?.model)
         s.modelFor(ModelRole.Vision)
-        assertEquals("c3" to "sk-local", built.last().first.id to built.last().second)
+        // Chuỗi dự phòng dựng cả mắt xích chính lẫn mắt xích dự phòng (v3): mắt xích ĐẦU TIÊN
+        // mới là cấu hình nhìn đang dùng (c3, key sk-local); mắt xích cuối là nhà dự phòng (c2).
+        assertEquals("c3" to "sk-local", built.first().first.id to built.first().second)
         // 按配置 id 存的旧 Key 清掉了
         val keys = kotlinx.serialization.json.Json.parseToJsonElement(File(tmp.root, "provider-keys.json").readText())
         assertEquals(setOf(ds.id, local.id), (keys as kotlinx.serialization.json.JsonObject).keys)
@@ -781,8 +790,8 @@ class ProviderStoreTest {
             ListedModel("a", endpoint = chat), ListedModel("b", endpoint = messages), ListedModel("c", endpoint = generate),
             ListedModel("r", endpoint = responses), ListedModel("u", unsupportedApis = listOf("realtime")), ListedModel("plain"),
         )
-        s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", listed)
-        assertEquals(listed, store().providers.value.single().models)
+        val p = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", listed)
+        assertEquals(listed, store().provider(p.id)!!.models)
     }
 
     @Test
@@ -1016,6 +1025,15 @@ class ProviderStoreTest {
         assertEquals(10_000L, store().provider(p.id)!!.dailyTokenBudget)
     }
 
+    /**
+     * 每日预算只拦 nó 那家:主模型那家到预算后, lần gọi chính tự chuyển sang nhà kế tiếp
+     * (nhà đó vẫn trong ngân sách của nó) để hoàn thành; nhà hết ngân sách không phục vụ
+     * lần nào và không bị ghi một lần gọi ảo nào; các lần gọi của nhà khác vẫn chạy bình thường.
+     * Đây là hành vi của chuỗi dự phòng v3: DailyBudgetExceeded được xếp vào diện có thể
+     * chuyển nhà (xem FailoverChatModel — «hết hạn mức» thì sang nhà kế tiếp). Việc «đến
+     * ngân sách thì lần gọi bị từ chối» vẫn được giữ nguyên ở trường hợp không còn nhà dự
+     * phòng (xem dailyBudgetRejectsWhenNoFailoverProviderRemains).
+     */
     @Test fun dailyBudgetRejectsOnlyItsOwnProviderWithoutAffectingOtherCalls() = runTest {
         val used = mutableMapOf<String, Long>()
         val seen = mutableListOf<UsageSource>()
@@ -1033,6 +1051,28 @@ class ProviderStoreTest {
         used[limited.id] = 10_000
         used[available.id] = 9_999
 
+        // Nhà chính hết ngân sách: lần gọi tự chuyển sang nhà kế tiếp và hoàn thành;
+        // nhà hết ngân sách không phục vụ, không bị ghi gọi ảo.
+        s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        assertEquals(listOf(available.id), seen.map { it.providerId })
+        s.modelFor(ModelRole.Light)!!.complete("s", emptyList(), emptyList())
+        assertEquals(listOf(available.id, available.id), seen.map { it.providerId })
+    }
+
+    /** Không còn nhà dự phòng: hết ngân sách thì lần gọi bị từ chối đúng như báo, không ghi gọi ảo. */
+    @Test fun dailyBudgetRejectsWhenNoFailoverProviderRemains() = runTest {
+        val used = mutableMapOf<String, Long>()
+        val seen = mutableListOf<UsageSource>()
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, dailyUsage = { used[it] ?: 0 },
+            usage = { source, _ -> seen += source },
+            modelFactory = { cfg, _, _, _ -> FakeModel(cfg.capabilities) },
+        )
+        val limited = connected(s, name = "Limited")
+        s.use(ModelRole.Main, limited.id, "m1", none)
+        assertTrue(s.setDailyTokenBudget(limited.id, 10_000))
+        used[limited.id] = 10_000
+
         try {
             s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
             fail("达到每日预算的服务商应停止下一次请求")
@@ -1042,8 +1082,6 @@ class ProviderStoreTest {
             assertEquals(10_000L, e.used)
         }
         assertTrue("拒绝时不记一笔不存在的调用", seen.isEmpty())
-        s.modelFor(ModelRole.Light)!!.complete("s", emptyList(), emptyList())
-        assertEquals(listOf(available.id), seen.map { it.providerId })
     }
 
     // ---------- Nhiều key cho một nhà (v3.3: ô dán key + xoay vòng) ----------

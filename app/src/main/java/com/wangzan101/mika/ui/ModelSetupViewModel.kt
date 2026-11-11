@@ -614,17 +614,20 @@ class ModelSetupViewModel(
     }
 
     /**
-     * Tiền tố không nhận ra hãng: thử gọi THẬT danh sách model của lần lượt Gemini → Groq → OpenRouter →
-     * Cerebras bằng chính key đó — chỉ gửi tới đúng các địa chỉ liệt kê model chính thức của bốn hãng này,
-     * không gửi đi nơi nào khác. Hãng nào trả về danh sách thì coi là hãng đó, rồi đi tiếp y như đường
-     * biết hãng ([finishPasteKey]); cả bốn đều từ chối mới báo «không nhận ra hãng». Trong lúc thử,
-     * nút bấm đang hiện sẵn chữ «Đang kiểm tra key…» nhờ [ModelSetupUi.pasteBusy].
+     * Tiền tố không nhận ra hãng: thử gọi THẬT danh sách model của lần lượt Gemini → Groq →
+     * Cerebras bằng chính key đó — chỉ gửi tới đúng các địa chỉ liệt kê model chính thức của ba hãng này,
+     * không gửi đi nơi nào khác. Hãng nào trả về danh sách model KHÔNG RỖNG thì coi là hãng đó, rồi đi tiếp
+     * y như đường biết hãng ([finishPasteKey]); thử hết vẫn không ra mới báo «không nhận ra hãng».
+     * OpenRouter KHÔNG nằm trong danh sách thử: địa chỉ /models của nó là công khai, key chết cũng trả về
+     * danh sách đầy đủ nên không chứng minh được key sống (thử nó thì key lạ nào cũng bị nhận nhầm thành
+     * OpenRouter); key OpenRouter thật luôn bắt đầu bằng «sk-or-» nên đường nhận diện theo tiền tố đã bao.
+     * Trong lúc thử, nút bấm đang hiện sẵn chữ «Đang kiểm tra key…» nhờ [ModelSetupUi.pasteBusy].
      */
     private suspend fun probePasteKey(key: String) {
-        for (label in listOf("Gemini", "Groq", "OpenRouter", "Cerebras")) {
+        for (label in listOf("Gemini", "Groq", "Cerebras")) {
             val p = ProviderPresets.all.firstOrNull { it.label == label } ?: continue
             val listed = withContext(io) { store.listModels(p.kind, p.baseUrl, key, p.sessionHeader) }
-            if (listed is ModelListResult.Ok) {
+            if (listed is ModelListResult.Ok && listed.models.isNotEmpty()) {
                 val note = withContext(io) { finishPasteKey(p, key, listed.models) }
                 _state.update { snapshot(it.copy(pasteBusy = false, pasteKey = "", pasteNote = note)) }
                 return
