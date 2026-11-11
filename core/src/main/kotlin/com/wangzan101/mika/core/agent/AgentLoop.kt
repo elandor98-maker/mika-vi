@@ -8,6 +8,7 @@ import com.wangzan101.mika.core.observation.PlaceKind
 import com.wangzan101.mika.core.observation.tag
 import com.wangzan101.mika.core.prompt.Feedback
 import com.wangzan101.mika.core.prompt.PromptVersion
+import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.tool.parseArgs
 import com.wangzan101.mika.core.action.ActionExecutor
 import com.wangzan101.mika.core.action.ActionOutcome
@@ -40,6 +41,7 @@ import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 import com.wangzan101.mika.core.model.StopReason
+import com.wangzan101.mika.core.model.StreamingChatModel
 import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.record.Redactor
 import com.wangzan101.mika.core.record.RunEvent
@@ -81,7 +83,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import com.wangzan101.mika.core.userscreen.UserScreenSource
 import com.wangzan101.mika.core.general.HISTORY_READ
 import com.wangzan101.mika.core.general.VIEW_USER_SCREEN
@@ -101,6 +105,9 @@ private fun cleanReplyParts(parts: List<Part>, text: String): List<Part> {
 }
 
 private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave, Verb.MemoryEdit)
+
+/** Giờ địa phương cấp cho đường chat nhanh (để nó trả lời được «mấy giờ rồi» mà không cần công cụ). */
+private val QUICK_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm EEEE")
 /** 讨论历史时仍可查本地记忆与技能资料、之前几轮的记录；这些调用不会打开 App 或网站。 */
 private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead)
 
@@ -172,6 +179,13 @@ class AgentLoop(
     /** 同一网站、App 里连着做对外动作(发送、提交)时两次之间的间隔;默认不等。 */
     private val outwardPacing: OutwardPacing = OutwardPacing.Off,
     private val trace: RunTrace? = null,
+    /**
+     * Đường tăng tốc (Phòng AI v3.3): bật thì câu hỏi thường đi đường chat nhanh một lần gọi
+     * (xem [QuickChat]) và việc không đụng vào điện thoại chỉ nhận bộ công cụ rút gọn.
+     * Mặc định TẮT để các đường vào khác (đánh giá, tác vụ con, kênh từ xa…) giữ nguyên hành vi;
+     * nơi lắp ráp đường sản phẩm từ giao diện mới bật.
+     */
+    private val quickChat: Boolean = false,
 ) {
     init {
         require(maxSteps > 0) { "maxSteps must be positive" }
@@ -307,6 +321,59 @@ class AgentLoop(
         return end
     }
 
+    /**
+     * Đường chat nhanh (v3.3, xem [QuickChat]): đúng MỘT lần gọi [model] (ở tầng lắp ráp nó là chuỗi
+     * dự phòng đã gồm xoay vòng key), bộ lệnh gọn = danh tính + nguyên tắc, không schema công cụ nào;
+     * ngữ cảnh chỉ gồm các lượt trước (đã qua trần [Conversation.HISTORY_TOKEN_BUDGET]), khối bộ nhớ
+     * và hồ sơ người dùng — cùng những thứ vòng lặp đầy đủ vẫn注入, qua cùng một cửa.
+     * Trả về null để rơi xuống vòng lặp đầy đủ khi: model lỗi (kể cả hết hạn mức ở mọi mắt xích —
+     * vòng lặp đầy đủ còn có cơ chế chờ/thử lại), trả lời rỗng/bị cắt, model «trả» một lời gọi công cụ,
+     * hoặc tự nó nói phải mở app / tra cứu mới trả lời được.
+     */
+    private suspend fun quickAnswer(task: String, prior: Message?, memoryText: String?): TaskState.Succeeded? {
+        val system = QuickChat.systemPrompt(
+            Prompts.system("identity"), Prompts.system("principles"),
+            Instant.ofEpochMilli(now()).atZone(zone).format(QUICK_TIME_FORMAT),
+        )
+        val memoryMessage = listOfNotNull(ProfileContext.render(profileSnapshot), memoryText)
+            .takeIf { it.isNotEmpty() }
+            ?.let { Message(Role.User, listOf(Part.Text(it.joinToString("\n\n"))), Author.Mika) }
+        val messages = listOfNotNull(prior, memoryMessage, Message(Role.User, listOf(Part.Text(task)), Author.User))
+        _state.value = TaskState.Running(1, "")
+        val asked = now()
+        val reply = try {
+            if (streamReplies && model is StreamingChatModel) {
+                model.completeStreaming(system, messages, emptyList()) { text ->
+                    val current = _state.value as? TaskState.Running
+                    if (current?.step == 1) {
+                        _state.value = current.copy(preview = CompletionPlanBlock.visible(text).takeIf(String::isNotEmpty))
+                    }
+                }
+            } else {
+                model.complete(system, messages, emptyList())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return null
+        }
+        if (reply.parts.any { it is Part.ToolCall }) return null
+        val answer = CompletionPlanBlock.extract(
+            reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim(),
+        ).text
+        if (answer.isEmpty() || reply.stopReason == StopReason.MaxTokens) return null
+        if (TaskClassifier.needsPhoneAction(answer)) return null
+        emit(RunEvent.State(now(), "quick_chat", ""))
+        emit(RunEvent.ModelReply(
+            now(), 1, RunEvent.clip(Redactor.text(answer)), null, null,
+            reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens,
+            now() - asked, repliedAtMs = now(),
+        ))
+        // Chưa qua kiểm chứng (reviewed = false): câu hỏi thường không có gì để đối chứng, giống hệt
+        // cách vòng lặp đầy đủ giao câu trả lời khi tắt bước kiểm chứng cuối (conclude, reviewFinalAnswer=false).
+        return TaskState.Succeeded(answer, verified = false, reviewed = false)
+    }
+
     /** 写操作前过 [gate]:挂起期间对外显示等待原因,结束后恢复 [gateState]。 */
     private suspend fun awaitGate() {
         try {
@@ -360,8 +427,15 @@ class AgentLoop(
         latestWords = ownWords(raw, opening)
         val priorTurns = shots.collapse(rawPrior)
         earlierGoals = priorTurns.map { it.userText }
-        // 之前的轮次只作参考,放在本次任务之前
-        val context = Conversation.context(priorTurns)
+        // 之前的轮次只作参考,放在本次任务之前; trần cứng ngân sách lịch sử áp ở đây (v3.3):
+        // bỏ lượt cũ nhất trước, luôn giữ lượt mới nhất — dưới ngân sách thì y nguyên như trước
+        val context = Conversation.context(Conversation.cappedTurns(priorTurns))
+        // Phân loại việc cho đường tăng tốc (v3.3; chỉ khi [quickChat] bật): việc không đụng vào
+        // điện thoại thì ở vòng lặp đầy đủ cũng chỉ nhận bộ công cụ rút gọn (xem refreshOffer);
+        // model nói phải hành động thật thì leo thang mở lại toàn bộ (xem chỗ tools_escalated).
+        val taskKind = if (quickChat) TaskClassifier.classify(task) else TaskKind.PhoneAction
+        var reducedTools = taskKind != TaskKind.PhoneAction
+        var toolsEscalated = false
         // 仅「上一轮用户明确确认 + 再上一轮助手建议/提问」可供 memory_save 跨轮引用;更早轮次与助手原文不收。
         val confirmation = rawPrior.lastOrNull()
         val proposal = rawPrior.dropLast(1).lastOrNull()
@@ -382,6 +456,13 @@ class AgentLoop(
             memory?.markUsed(block.usedIds)
             emit(RunEvent.MemoryUsed(now(), block.usedIds))
         }
+        // Đường chat nhanh (v3.3): câu hỏi thường (không kèm màn hình/hình ảnh) trả lời bằng đúng
+        // một lần gọi model gọn qua chính [model] này (đã là chuỗi dự phòng + xoay vòng key ở tầng
+        // lắp ráp). Trục trặc gì cũng rơi xuống vòng lặp đầy đủ bên dưới — xem [quickAnswer].
+        if (quickChat && taskKind == TaskKind.Plain && opening?.images.isNullOrEmpty()) {
+            val quick = quickAnswer(task, context, block?.message)
+            if (quick != null && inbox?.hasSteers() != true) return quick
+        }
         // 开局预先展开:上一轮用过的组,和这次的话一定用得上的(见 ToolDispatcher.preload)
         tools.preload(task, priorTurns.lastOrNull()?.groups.orEmpty()).forEach { emit(RunEvent.State(now(), "tools_preloaded", it)) }
         var openGroups = tools.expanded
@@ -394,9 +475,12 @@ class AgentLoop(
         val everything = tools.offeredNow(listOfNotNull(batchSpec), all = true).filter(::keep)
         emit(RunEvent.PromptVersion(now(), PromptVersion.of(SystemPrompt.assemble(basePrompt, tools.promptSections(everything, all = true)), everything)))
         var specs = emptyList<ToolSpec>()
-        // 每次问模型之前:展开了新的组时,工具和系统提示词跟着换;没展开就一字不变
+        // 每次问模型之前:展开了新的组时,工具和系统提示词跟着换;没展开就一字不变。
+        // Chế độ rút gọn (v3.3): lọc ở đúng điểm này — điểm duy nhất gom schema cho một vòng chạy —
+        // để cả schema lẫn đoạn prompt của điện thoại/sandbox/root đều không được phát.
         fun refreshOffer() {
             val offer = tools.offeredNow(listOfNotNull(batchSpec)).filter(::keep)
+                .filter { spec -> !reducedTools || tools.index[spec.name]?.capability !in QuickChat.REDUCED_OUT_CAPABILITIES }
             if (offer == specs) return
             specs = offer
             caller.systemPrompt = SystemPrompt.assemble(basePrompt, tools.promptSections(specs))
@@ -583,6 +667,18 @@ class AgentLoop(
                 if (owed != null) {
                     followUpNudged = true
                     TurnPolicy.followUp(owed).let { history += ctx.notice(it.source, it.text) }
+                    continue
+                }
+                // Đang ở chế độ công cụ rút gọn mà model nói rõ phải hành động trên điện thoại /
+                // phải tra cứu bằng công cụ: mở lại toàn bộ công cụ rồi làm tiếp, không coi câu đó
+                // là câu trả lời cuối (leo thang một lần duy nhất; xem [reducedTools]).
+                if (reducedTools && !toolsEscalated && TaskClassifier.needsPhoneAction(text)) {
+                    toolsEscalated = true
+                    reducedTools = false
+                    emit(RunEvent.State(now(), "tools_escalated", ""))
+                    history += ctx.notice("tools_escalated",
+                        "The full phone and sandbox tools are now available. Continue the task using them; do not repeat the previous message.")
+                    refreshOffer()
                     continue
                 }
                 val before = beforeAccept(text)

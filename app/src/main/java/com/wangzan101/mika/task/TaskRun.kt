@@ -898,6 +898,9 @@ class TaskRun(
                 interaction = service.interaction(conversationId, channelPeer),
                 profileSnapshot = profileSnapshot,
                 streamReplies = true,
+                // Đường tăng tốc v3.3 (chat nhanh + bộ công cụ rút gọn) chỉ cho việc từ giao diện
+                // người dùng; tác vụ con/kênh từ xa giữ hành vi cũ (mặc định tắt ở AgentLoop).
+                quickChat = provenance.origin == RunOrigin.Ui,
                 userScreens = userScreens,
                 // 同一网站、App 里连着联系别人、提交:两次之间隔一段随机的时间
                 outwardPacing = OutwardPacing.human(),

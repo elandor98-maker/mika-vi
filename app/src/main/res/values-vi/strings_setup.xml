@@ -79,4 +79,15 @@
     <string name="model_probe_tried">Đã thử %1$s; không có mô hình nào trong số đó qua được kiểm tra.</string>
     <string name="model_probe_fallback">%1$s, được thử đầu tiên, đã không qua kiểm tra: %2$s. Mô hình chính là “%3$s”, mô hình đã qua kiểm tra.</string>
     <string name="model_pick_main">Chọn mô hình chính</string>
+    <string name="paste_key_title">Dán key của bất kỳ hãng nào</string>
+    <string name="paste_key_hint">Dán key vào đây — app tự nhận ra hãng</string>
+    <string name="paste_key_add">Thêm key</string>
+    <string name="paste_key_adding">Đang kiểm tra key…</string>
+    <string name="paste_key_unknown">Không nhận ra hãng từ key này. Anh kiểm tra lại key giúp em.</string>
+    <string name="paste_key_duplicate">Key này đã lưu rồi cho %1$s, là key số %2$d.</string>
+    <string name="paste_key_invalid">%1$s từ chối key này: %2$s</string>
+    <string name="paste_key_added">Đã thêm key số %1$d của %2$s. Model mặc định: %3$s.</string>
+    <string name="paste_key_no_model">Đã thêm key số %1$d của %2$s, nhưng chưa tìm được model chat dùng được. Anh chọn một model trong danh sách của hãng này giúp em.</string>
+    <string name="paste_key_role">Vai trò: %1$s.</string>
+    <string name="paste_key_role_none">Chưa gán vai — key đã lưu; khi nào cần, anh chọn một model của hãng này ở danh sách bên dưới là dùng được.</string>
 </resources>

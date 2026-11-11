@@ -202,6 +202,7 @@ fun ModelSetupScreen(
             ModelSetupContent(
                 ui, onboarding,
                 ModelSetupActions(
+                    setPasteKey = vm::setPasteKey, submitPasteKey = vm::submitPasteKey,
                     selectPreset = vm::selectPreset, setKind = vm::setKind, setBaseUrl = vm::setBaseUrl, setApiKey = vm::setApiKey,
                     setModel = vm::setModel, setManual = vm::setManual, setName = vm::setName,
                     testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
@@ -243,6 +244,9 @@ fun ModelSetupScreen(
 
 /** 主页面上的全部动作。 */
 class ModelSetupActions(
+    /** Ô «dán key» (v3.3): gõ/dán key và bấm Thêm key. */
+    val setPasteKey: (String) -> Unit = {},
+    val submitPasteKey: () -> Unit = {},
     val selectPreset: (String) -> Unit = {},
     val setKind: (ProviderConfig.Kind) -> Unit = {},
     val setBaseUrl: (String) -> Unit = {},
@@ -292,6 +296,7 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                         fontSize = 14.5.sp, lineHeight = 23.sp, color = c.ink2,
                     )
                 }
+                PasteKeyCard(ui, actions)
                 // 上手时先连服务商再选模型;设置里先看用途
                 if (onboarding) {
                     ProvidersSection(ui, actions)
@@ -317,6 +322,36 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
             }
         }
     }
+}
+
+/**
+ * Ô «dán key» (Phòng AI v3.3): một thẻ ở trên cùng trang — dán key của bất kỳ hãng nào,
+ * app tự nhận hãng, tự kiểm chứng, tự chọn model và gán vai (xem [ModelSetupViewModel.submitPasteKey]).
+ * Dán thêm key của hãng đã có là thêm một tài khoản vào vòng xoay key của hãng đó.
+ */
+@Composable
+private fun PasteKeyCard(ui: ModelSetupUi, actions: ModelSetupActions) {
+    GroupLabel(stringResource(R.string.paste_key_title))
+    GroupCard {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            OutlinedTextField(
+                ui.pasteKey, actions.setPasteKey,
+                modifier = Modifier.fillMaxWidth().testTag("paste-key-field"),
+                singleLine = true,
+                label = { Text(stringResource(R.string.paste_key_title)) },
+                placeholder = { Text(stringResource(R.string.paste_key_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            )
+            MikaButton(
+                if (ui.pasteBusy) stringResource(R.string.paste_key_adding) else stringResource(R.string.paste_key_add),
+                actions.submitPasteKey,
+                Modifier.fillMaxWidth().padding(top = 10.dp).testTag("paste-key-add"),
+                kind = ButtonKind.Secondary, size = ButtonSize.Medium,
+                enabled = ui.pasteKey.isNotBlank() && !ui.pasteBusy,
+            )
+        }
+    }
+    ui.pasteNote?.let { FooterNote(it, Modifier.testTag("paste-key-note")) }
 }
 
 /** 服务商:每家一行(写明在给哪些用途干活),加「添加服务商」;没有服务商或点了添加时,表单就摊在这里。 */

@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -335,8 +336,12 @@ class ProviderStore(
     /** 三个用途各选了什么;指向的配置都在 [configs] 里。 */
     val roles: StateFlow<RoleChoices> = _roles.asStateFlow()
 
-    /** 服务商 id → 加密后的 Key。 */
-    private var keys: Map<String, String> = emptyMap()
+    /**
+     * 服务商 id → 加密后的 Key 列表(按添加先后)。旧版本每家只有一把 Key,读入时自动变成只有一个元素的列表
+     * (见 [load] 的兼容读法);写盘时只有一个元素仍写成单个字符串,和旧格式一致,多个才写成数组。
+     * 多个 Key 是用户明确要求的(同一家多个账号轮着用,见 FailoverChatModel 的按 Key 轮换)。
+     */
+    private var keys: Map<String, List<String>> = emptyMap()
 
     init {
         dir.mkdirs()
@@ -368,10 +373,33 @@ class ProviderStore(
     fun apiKey(configId: String): String? =
         _configs.value.firstOrNull { it.id == configId }?.let { providerKey(it.providerId) }
 
-    /** 服务商的 Key。解不开(例如密钥库被系统清掉)时当作没有 Key。 */
-    fun providerKey(providerId: String): String? {
-        val enc = synchronized(this) { keys[providerId] } ?: return null
-        return runCatching { String(cipher.decrypt(decode(enc))) }.getOrNull()
+    /** 服务商的 Key(列表里的第一把,给只需要一把 Key 的地方用)。解不开(例如密钥库被系统清掉)时当作没有 Key。 */
+    fun providerKey(providerId: String): String? = providerKeys(providerId).firstOrNull()
+
+    /** 服务商的全部 Key,按添加先后;解不开的那把跳过。没有为 null 的位置:解不开就当没有。 */
+    fun providerKeys(providerId: String): List<String> {
+        val enc = synchronized(this) { keys[providerId] } ?: return emptyList()
+        return enc.mapNotNull { runCatching { String(cipher.decrypt(decode(it))) }.getOrNull() }
+    }
+
+    /** 服务商存了几把 Key。 */
+    fun keyCount(providerId: String): Int = synchronized(this) { keys[providerId]?.size ?: 0 }
+
+    /**
+     * 给服务商再加一把 Key(ô «dán key» ở trang Mô hình, xem com.wangzan101.mika.settings.PasteKey):
+     * 已经存着的一模一样的 Key 不重复加。返回值:加上后这家共有几把 Key(> 0);
+     * Key 已存在时返回它现在的序号取负(第 2 把已存在返回 -2);服务商不存在或 Key 为空返回 0。
+     */
+    @Synchronized
+    fun appendProviderKey(providerId: String, apiKey: String): Int {
+        if (provider(providerId) == null) return 0
+        val k = apiKey.trim()
+        if (k.isEmpty()) return 0
+        val existing = providerKeys(providerId)
+        val at = existing.indexOf(k)
+        if (at >= 0) return -(at + 1)
+        setKeys(providerId, existing + k)
+        return existing.size + 1
     }
 
     /** 只为仍匹配这次额度查询的服务商配置取 Key。 */
@@ -622,8 +650,25 @@ class ProviderStore(
         // AI nội bộ làm chính = lựa chọn offline có chủ đích: không tự ý gọi thêm nhà cloud nào khác.
         if (primary.kind == ProviderConfig.Kind.Local) return buildMetered(primary, role, session)
         val chain = failoverChain(primary)
-        if (chain.size == 1) return buildMetered(chain[0], role, session)
-        return FailoverChatModel(chain.map { buildMetered(it, role, session) })
+        // Mỗi nhà có thể có NHIỀU key (nhiều tài khoản của người dùng): chuỗi được trải ra
+        // một mắt xích cho mỗi key, key của nhà trước nằm trước key của nhà sau. Nhờ vậy khi một key
+        // hết hạn mức/bị giới hạn, FailoverChatModel tự chuyển sang KEY KẾ TIẾP CỦA CÙNG NHÀ trước,
+        // hết key của nhà đó mới sang nhà kế tiếp; thời gian "bỏ qua" (cooldown) của nó tính theo từng
+        // mắt xích = từng key, và nhà chỉ có 1 key thì hành vi y hệt như trước.
+        val links = chain.flatMap { keyLinks(it, role, session) }
+        if (links.size == 1) return links[0]
+        return FailoverChatModel(links)
+    }
+
+    /** Các mắt xích của một cấu hình trong chuỗi dự phòng: mỗi key một mắt xích (theo thứ tự đã lưu). */
+    private fun keyLinks(cfg: ProviderConfig, role: ModelRole, session: ModelSession): List<ChatModel> {
+        // Hai nhà đăng nhập bằng tài khoản: thứ lưu trong "key" là phiên đăng nhập duy nhất, không có nhiều key.
+        if (cfg.kind == ProviderConfig.Kind.ChatGpt || cfg.kind == ProviderConfig.Kind.Xai) {
+            return listOf(buildMetered(cfg, role, session))
+        }
+        val all = providerKeys(cfg.providerId).filter { it.isNotBlank() }
+        if (all.size <= 1) return listOf(buildMetered(cfg, role, session))
+        return all.map { buildMetered(cfg, role, session, keyOverride = it) }
     }
 
     /**
@@ -648,8 +693,12 @@ class ProviderStore(
         return out
     }
 
-    /** Dựng một mô hình đã bọc计量 từ đúng một cấu hình (thân cũ của [modelFor]). */
-    private fun buildMetered(cfg: ProviderConfig, role: ModelRole, session: ModelSession): ChatModel {
+    /**
+     * Dựng một mô hình đã bọc计量 từ đúng một cấu hình (thân cũ của [modelFor]).
+     * [keyOverride] cho trước thì dùng đúng key đó (mắt xích xoay vòng key, xem [keyLinks]);
+     * không cho thì dùng key đầu của nhà như trước nay.
+     */
+    private fun buildMetered(cfg: ProviderConfig, role: ModelRole, session: ModelSession, keyOverride: String? = null): ChatModel {
         val p = provider(cfg.providerId)
         val source = UsageSource(cfg.providerId, p?.name ?: cfg.name, cfg.model, UsagePurpose.of(role))
         val listed = listedOf(cfg)
@@ -658,7 +707,7 @@ class ProviderStore(
             contextTokens = settings.windowTokens ?: cfg.capabilities.contextTokens,
             compactionTriggerTokens = settings.triggerTokens,
         ))
-        return modelFactory(configured, apiKey(cfg.id), listed?.endpoint, ClientSetup(
+        return modelFactory(configured, keyOverride ?: apiKey(cfg.id), listed?.endpoint, ClientSetup(
             headers(p?.sessionHeader, session), reasoningEffort = _roles.value.reasoningEffort(role),
             thinkingTypes = listed?.thinkingTypes, readTimeoutSeconds = settings?.readTimeoutSeconds,
         )).metered(source, usage, ::checkDailyBudget)
@@ -930,8 +979,13 @@ class ProviderStore(
         return p
     }
 
-    private fun setKey(providerId: String, apiKey: String) {
-        keys = if (apiKey.isEmpty()) keys - providerId else keys + (providerId to encode(cipher.encrypt(apiKey.toByteArray())))
+    /** 换成一把 Key(替换整列);空串表示把这一家的 Key 全清掉。「再加一把」走 [appendProviderKey]。 */
+    private fun setKey(providerId: String, apiKey: String) =
+        setKeys(providerId, if (apiKey.isEmpty()) emptyList() else listOf(apiKey))
+
+    private fun setKeys(providerId: String, plainKeys: List<String>) {
+        keys = if (plainKeys.isEmpty()) keys - providerId
+            else keys + (providerId to plainKeys.map { encode(cipher.encrypt(it.toByteArray())) })
         writeAtomically(keyFile, keysJson())
         val revisions = _providerKeyRevisions.value
         _providerKeyRevisions.value = revisions + (providerId to ((revisions[providerId] ?: 0L) + 1))
@@ -973,7 +1027,10 @@ class ProviderStore(
             _roles.value = if (uses != null) choicesOf(uses) else migrateRoles(root["roles"]?.jsonObject)
         }
         if (keyFile.isFile) runCatching {
-            keys = json.parseToJsonElement(keyFile.readText()).jsonObject.mapValues { it.value.jsonPrimitive.content }
+            // 兼容两种写法:旧版每家一把 Key 写成单个字符串;多 Key 写成数组(见 keysJson)
+            keys = json.parseToJsonElement(keyFile.readText()).jsonObject.mapValues { (_, v) ->
+                if (v is JsonArray) v.map { it.jsonPrimitive.content } else listOf(v.jsonPrimitive.content)
+            }
         }
         migrate()
         repairStaleContextDefaults()
@@ -1233,7 +1290,12 @@ class ProviderStore(
         return root.toString()
     }
 
-    private fun keysJson() = buildJsonObject { keys.forEach { (id, v) -> put(id, v) } }.toString()
+    /** 一把 Key 写成单个字符串(和旧版本完全一致);多把写成数组,读入时两种都认(见 [load])。 */
+    private fun keysJson() = buildJsonObject {
+        keys.forEach { (id, list) ->
+            if (list.size == 1) put(id, list[0]) else putJsonArray(id) { list.forEach { add(it) } }
+        }
+    }.toString()
 
     private fun writeAtomically(f: File, text: String) {
         val tmp = File(f.parentFile, f.name + ".tmp")

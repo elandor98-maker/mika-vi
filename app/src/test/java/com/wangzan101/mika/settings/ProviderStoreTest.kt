@@ -1044,6 +1044,66 @@ class ProviderStoreTest {
         assertEquals(listOf(available.id), seen.map { it.providerId })
     }
 
+    // ---------- Nhiều key cho một nhà (v3.3: ô dán key + xoay vòng) ----------
+
+    @Test fun appendProviderKeyAddsAndDedups() {
+        val s = store()
+        val p = connected(s, key = "k1")
+        assertEquals(2, s.appendProviderKey(p.id, "k2"))
+        assertEquals(-2, s.appendProviderKey(p.id, "k2"))
+        assertEquals(-1, s.appendProviderKey(p.id, "k1"))
+        assertEquals(0, s.appendProviderKey("không-có-nhà-này", "k3"))
+        assertEquals(listOf("k1", "k2"), s.providerKeys(p.id))
+        assertEquals("k1", s.providerKey(p.id))
+        assertEquals(2, s.keyCount(p.id))
+        // Ghi xuống rồi mở lại vẫn đủ hai key, đúng thứ tự
+        assertEquals(listOf("k1", "k2"), store().providerKeys(p.id))
+        // Đổi key (thay cả danh sách) vẫn là một key như cũ
+        s.updateProviderKey(p.id, "k9")
+        assertEquals(listOf("k9"), s.providerKeys(p.id))
+    }
+
+    @Test fun legacySingleStringKeyFileLoadsAsOneElementList() {
+        val s = store()
+        val p = connected(s, key = "sk-legacy")
+        // File do bản cũ ghi chỉ có chuỗi đơn (định dạng keysJson cho 1 key giữ nguyên như cũ)
+        val keys = kotlinx.serialization.json.Json.parseToJsonElement(File(tmp.root, "provider-keys.json").readText())
+        assertTrue(keys is kotlinx.serialization.json.JsonObject)
+        assertEquals(listOf("sk-legacy"), store().providerKeys(p.id))
+    }
+
+    @Test fun modelForBuildsOneLinkPerKeyInOrder() {
+        val s = store()
+        val p = connected(s, key = "k1")
+        s.appendProviderKey(p.id, "k2")
+        s.use(ModelRole.Main, p.id, "m1", none)
+        built.clear()
+        val model = s.modelFor(ModelRole.Main)
+        assertTrue(model is FailoverChatModel)
+        assertEquals(listOf("k1", "k2"), built.map { it.second })
+    }
+
+    @Test fun quotaOnFirstKeyRotatesToSecondKeyOfSameProvider() = runTest {
+        val called = mutableListOf<String?>()
+        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3") { cfg, apiKey, _, _ ->
+            object : ChatModel {
+                override val capabilities: Capabilities = cfg.capabilities
+                override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                    called += apiKey
+                    if (apiKey == "k1") throw ModelError.QuotaExceeded()
+                    return ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))
+                }
+            }
+        }
+        val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
+        assertEquals(2, s.appendProviderKey(p.id, "k2"))
+        s.use(ModelRole.Main, p.id, "m1", none)
+        val reply = s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        // Key 1 hết hạn mức → tự chuyển key 2 của CÙNG nhà, không cần nhà khác
+        assertEquals(listOf("k1", "k2"), called)
+        assertEquals(Usage(3, 2), reply.usage)
+    }
+
     private class FakeModel(override val capabilities: Capabilities) : ChatModel {
         override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply =
             ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))

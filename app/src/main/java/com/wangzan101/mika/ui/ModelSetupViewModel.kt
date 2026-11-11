@@ -21,6 +21,7 @@ import com.wangzan101.mika.settings.ProviderPresets
 import com.wangzan101.mika.settings.ProbeResult
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.ModelContextSettings
+import com.wangzan101.mika.settings.PasteKey
 import com.wangzan101.mika.settings.RoleChoice
 import com.wangzan101.mika.settings.RoleChoices
 import com.wangzan101.mika.settings.ChatGptSignIns
@@ -221,6 +222,10 @@ data class ModelSetupUi(
      * 再测试、选了主模型时清掉。
      */
     val probeNote: String? = null,
+    /** Ô «dán key» (v3.3): nội dung đang gõ/dán, đang kiểm tra hay không, và câu kết quả gần nhất. */
+    val pasteKey: String = "",
+    val pasteBusy: Boolean = false,
+    val pasteNote: String? = null,
     /**
      * 刚存下、还没有哪个模型试通过过的服务商 id:在它里面选主模型时先试调用(见 [probeBeforePick]);选好了清掉。
      * 两个来源:试调用的模型一个都没通过,或用户跳过测试直接存下。
@@ -563,6 +568,75 @@ class ModelSetupViewModel(
                 ))
             }
         }
+    }
+
+    // ---------- Ô dán key (Phòng AI v3.3) ----------
+
+    fun setPasteKey(text: String) = _state.update { it.copy(pasteKey = text, pasteNote = null) }
+
+    /**
+     * Dán một key bất kỳ: tự nhận hãng từ định dạng key (xem [PasteKey.presetFor]), kiểm chứng bằng cách
+     * liệt kê model bằng chính key đó; key sống mới lưu. Nhà chưa có thì tạo mới (key thành key đầu tiên);
+     * nhà có rồi thì THÊM key vào danh sách key của nhà đó (dán nhiều key cùng hãng = nhiều tài khoản của
+     * người dùng, lúc chạy tự xoay vòng key trong hãng trước khi sang hãng khác — xem [ProviderStore.modelFor]).
+     * Sau đó tự chọn model mặc định (xem [ModelOptions.defaultMain], đã lọc model không phải chat) và gán
+     * vai còn trống theo thứ tự Chính → Nhẹ → Nhìn; nhà đã đang giữ một vai thì giữ nguyên vai đó.
+     * Nhận không ra hãng thì chỉ báo rõ, không lưu gì cả.
+     */
+    fun submitPasteKey() {
+        val key = _state.value.pasteKey.trim()
+        if (key.isEmpty() || _state.value.pasteBusy) return
+        val preset = PasteKey.presetFor(key)
+        if (preset == null) {
+            _state.update { it.copy(pasteNote = tr(R.string.paste_key_unknown)) }
+            return
+        }
+        _state.update { it.copy(pasteBusy = true, pasteNote = null) }
+        scope.launch {
+            val listed = withContext(io) { store.listModels(preset.kind, preset.baseUrl, key, preset.sessionHeader) }
+            val models = when (listed) {
+                is ModelListResult.Ok -> listed.models
+                is ModelListResult.Failed -> {
+                    _state.update {
+                        it.copy(pasteBusy = false, pasteNote = tr(R.string.paste_key_invalid, preset.label, listed.message))
+                    }
+                    return@launch
+                }
+            }
+            val note = withContext(io) { finishPasteKey(preset, key, models) }
+            _state.update { snapshot(it.copy(pasteBusy = false, pasteKey = "", pasteNote = note)) }
+        }
+    }
+
+    /** Phần ghi xuống storage của [submitPasteKey]: tạo/thêm nhà + key, chọn model mặc định, gán vai. Trả về câu kết quả. */
+    private fun finishPasteKey(preset: ProviderPreset, key: String, models: List<ListedModel>): String {
+        val existing = PasteKey.existingProvider(store, preset)
+        val keyNo: Int
+        if (existing == null) {
+            store.connect(preset.label, preset.kind, preset.baseUrl, key, models, preset.sessionHeader)
+            keyNo = 1
+        } else {
+            val added = store.appendProviderKey(existing.id, key)
+            if (added < 0) return tr(R.string.paste_key_duplicate, preset.label, -added)
+            if (added == 0) return tr(R.string.paste_key_invalid, preset.label, "")
+            keyNo = added
+            store.rememberModels(existing.id, models)
+        }
+        val fresh = PasteKey.existingProvider(store, preset) ?: return tr(R.string.paste_key_invalid, preset.label, "")
+        val allOptions = ModelOptions.ofProvider(fresh, store.list())
+        val model = ModelOptions.defaultMain(allOptions.filter { o -> !ModelOptions.looksNonChat(o) }, preset.familyTokens)
+            ?: return tr(R.string.paste_key_no_model, keyNo, preset.label)
+        val serving = ModelRole.entries.firstOrNull { r -> store.configFor(r)?.providerId == fresh.id }
+        val role = serving ?: when {
+            store.roles.value.main == null -> ModelRole.Main
+            store.roles.value.light !is RoleChoice.Model -> ModelRole.Light
+            store.roles.value.vision == RoleChoice.Off -> ModelRole.Vision
+            else -> null
+        }
+        if (role != null && role != serving) use(role, fresh, model, allOptions)
+        val base = tr(R.string.paste_key_added, keyNo, preset.label, model)
+        return if (role != null) base + " " + tr(R.string.paste_key_role, ModelsCopy.roleLabel(role))
+        else base + " " + tr(R.string.paste_key_role_none)
     }
 
     /**

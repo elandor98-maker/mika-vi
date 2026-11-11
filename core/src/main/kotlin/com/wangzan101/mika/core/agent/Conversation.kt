@@ -44,6 +44,29 @@ data class Turn(
 object Conversation {
     const val HEADER = "Earlier turns of this conversation (for reference; what you read this time shows the current state):"
 
+    /**
+     * Ngân sách token tối đa cho phần lịch sử các lượt trước trong MỘT lần gọi model (bản Phòng AI v3.3):
+     * lịch sử không được phình vô hạn theo độ dài cuộc trò chuyện — quá ngân sách thì bỏ các lượt CŨ nhất
+     * trước, luôn giữ các lượt mới nhất (xem [cappedTurns]). [context] vốn đã cắt chặt hơn nữa
+     * (mặc định 2.500 token / 5 lượt); hằng này là trần cứng áp ở tầng lắp ráp của AgentLoop và đường
+     * chat nhanh, để không đường nào vô tình gửi quá 24K token lịch sử trong một lần gọi.
+     */
+    const val HISTORY_TOKEN_BUDGET = 24_000
+
+    /**
+     * Bỏ các lượt cũ nhất cho tới khi bản dựng [context] của các lượt còn lại vừa trong [maxTokens]
+     * (ước lượng bằng [TokenEstimate]); ít nhất luôn giữ lượt mới nhất. Dưới ngân sách thì trả nguyên.
+     */
+    fun cappedTurns(turns: List<Turn>, maxTokens: Int = HISTORY_TOKEN_BUDGET): List<Turn> {
+        var kept = turns
+        while (kept.size > 1) {
+            val rendered = context(kept, maxTurns = kept.size, maxTokens = Int.MAX_VALUE) ?: return kept
+            if (TokenEstimate.of(listOf(rendered)) <= maxTokens) break
+            kept = kept.drop(1)
+        }
+        return kept
+    }
+
     /** 停止的那一轮还没有交代(或没什么可交代)时记下的话。 */
     const val CANCELLED_OUTCOME = "已取消"
 

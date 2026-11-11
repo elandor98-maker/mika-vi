@@ -79,4 +79,15 @@
     <string name="model_probe_tried">Tried %1$s; none of them passed the test.</string>
     <string name="model_probe_fallback">%1$s, tried first, didn’t pass the test: %2$s. The main model is “%3$s”, which passed.</string>
     <string name="model_pick_main">Choose main model</string>
+    <string name="paste_key_title">Paste a key from any provider</string>
+    <string name="paste_key_hint">Paste the key here — the provider is detected automatically</string>
+    <string name="paste_key_add">Add key</string>
+    <string name="paste_key_adding">Checking the key…</string>
+    <string name="paste_key_unknown">Couldn’t recognize the provider from this key. Check the key and try again.</string>
+    <string name="paste_key_duplicate">This key is already saved for %1$s as key #%2$d.</string>
+    <string name="paste_key_invalid">%1$s rejected this key: %2$s</string>
+    <string name="paste_key_added">Added key #%1$d for %2$s. Default model: %3$s.</string>
+    <string name="paste_key_no_model">Added key #%1$d for %2$s, but no usable chat model was found. Pick one from the provider’s model list.</string>
+    <string name="paste_key_role">Role: %1$s.</string>
+    <string name="paste_key_role_none">Not assigned a role yet — the key is saved; pick one of this provider’s models below whenever you need it.</string>
 </resources>
