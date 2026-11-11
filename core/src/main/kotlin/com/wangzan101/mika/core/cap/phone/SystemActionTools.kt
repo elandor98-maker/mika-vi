@@ -259,7 +259,7 @@ internal object BulkAddCalendarEvents : PhoneTool {
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
         val count = (r.content["inserted"] as? JsonPrimitive)?.contentOrNull ?: return emptyList()
-        return listOf(Observation(ObsKind.Fact, "日历提供方已确认保存 $count 条日程", source = PHONE))
+        return listOf(Observation(ObsKind.Fact, "Lịch đã xác nhận lưu $count sự kiện", source = PHONE))
     }
 
     private fun eventId(uri: String): String? =

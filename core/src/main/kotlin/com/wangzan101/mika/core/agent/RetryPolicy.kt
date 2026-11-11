@@ -9,16 +9,16 @@ import kotlin.random.Random
  * 流式回复没收尾连接就断了(这时回复还没写进历史、也没执行任何工具,重发是安全的)。
  * 其余错误(Key、额度、模型名、内容被拒、其他 4xx、解析不了)再试也一样,不重试;上下文超长另由压缩处理。
  * 限流带了 Retry-After 就照它等(有上限);其余按指数退避加抖动,每次调用最多重试 [maxRetries] 次。
- * 一个任务里花在等重试上的总时间有上限 [taskWaitBudgetMs](默认 5 分钟,只是安全网):用完之后再出错就直接交出,不再等。
+ * 一个任务里花在等重试上的总时间有上限 [taskWaitBudgetMs](默认 15 分钟,只是安全网):用完之后再出错就直接交出,不再等。
  * 纯函数:抖动由 [jitter] 给(0..1),测试里换成定值。
  */
 class RetryPolicy(
-    val maxRetries: Int = 3,
-    private val baseMs: Long = 1_000,
-    private val maxBackoffMs: Long = 8_000,
-    private val retryAfterCapMs: Long = 30_000,
+    val maxRetries: Int = 8,
+    private val baseMs: Long = 2_000,
+    private val maxBackoffMs: Long = 60_000,
+    private val retryAfterCapMs: Long = 120_000,
     /** 一个任务里所有重试等待加起来的上限。 */
-    val taskWaitBudgetMs: Long = 5 * 60_000,
+    val taskWaitBudgetMs: Long = 15 * 60_000,
     private val jitter: () -> Double = { Random.nextDouble() },
 ) {
     init {

@@ -163,7 +163,8 @@ class ModelOptionsTest {
     @Test fun nonChatModelsAreRecognised() {
         fun opt(id: String, chat: Boolean? = null) = ModelOptions.merge(listOf(ListedModel(id, chat = chat)), base).single()
         for (id in listOf("text-embedding-3-small", "bge-reranker", "whisper-1", "gpt-4o-mini-tts", "gpt-4o-transcribe", "dall-e-3",
-            "gpt-image-1", "qwen-vl-ocr", "paraformer-realtime-v2", "omni-moderation-latest", "qwen3-asr-flash")) {
+            "gpt-image-1", "qwen-vl-ocr", "paraformer-realtime-v2", "omni-moderation-latest", "qwen3-asr-flash",
+            "meta-llama/llama-prompt-guard-2-22m", "openai/gpt-oss-safeguard-20b", "canopylabs/orpheus-v1-english")) {
             assertTrue(id, ModelOptions.looksNonChat(opt(id)))
         }
         for (id in listOf("qwen-plus", "deepseek-chat", "gpt-5-mini", "claude-sonnet-4-5", "qwen-vl-max", "step-2-16k")) {

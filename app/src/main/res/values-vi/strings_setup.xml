@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="welcome_title">Xin chào, tôi là Mika</string>
+    <string name="welcome_title">Xin chào, tôi là Phòng AI</string>
     <string name="welcome_lead">Trợ lý cá nhân ngay trên điện thoại của bạn.\nHãy cho tôi biết việc cần làm, tôi sẽ hoàn thành ở chế độ nền.</string>
     <string name="welcome_note">Trước khi bắt đầu: hãy thiết lập một mô hình và bật điều khiển điện thoại. Khoảng 3 phút.</string>
     <string name="welcome_start">Bắt đầu</string>
@@ -16,7 +16,7 @@
     <string name="hide">Ẩn</string>
     <string name="show">Hiện</string>
     <string name="model_setup_title">Thiết lập mô hình</string>
-    <string name="model_setup_lead">Mika suy nghĩ bằng dịch vụ mô hình của chính bạn. Hãy kết nối một nhà cung cấp trước, rồi chọn mô hình cho từng công việc.</string>
+    <string name="model_setup_lead">Phòng AI suy nghĩ bằng dịch vụ mô hình của chính bạn. Hãy kết nối một nhà cung cấp trước, rồi chọn mô hình cho từng công việc.</string>
     <string name="model_setup_onboarding_note">Chỉ mô hình chính là bắt buộc; hai mô hình còn lại có thể để sau.</string>
     <string name="model_kind">Loại API</string>
     <string name="model_base_url">URL cơ sở</string>
@@ -26,7 +26,7 @@
     <string name="model_key_optional">Không bắt buộc với dịch vụ cục bộ</string>
     <string name="model_test_save">Kiểm tra và lưu</string>
     <string name="model_testing">Đang kiểm tra…</string>
-    <string name="model_test_note">Mika liệt kê các mô hình của nhà cung cấp này, rồi yêu cầu một mô hình trong đó gọi một công cụ kiểm tra; nếu cả hai đều được, nhà cung cấp sẽ được lưu.</string>
+    <string name="model_test_note">Phòng AI liệt kê các mô hình của nhà cung cấp này, rồi yêu cầu một mô hình trong đó gọi một công cụ kiểm tra; nếu cả hai đều được, nhà cung cấp sẽ được lưu.</string>
     <string name="next">Tiếp theo</string>
     <string name="model_failed">Kết nối thất bại: %1$s</string>
     <string name="cap_vision">Thị giác</string>
@@ -40,7 +40,7 @@
     <string name="model_url_unencrypted">Địa chỉ này không được mã hóa; API key và cuộc trò chuyện của bạn có thể bị người khác trên mạng nhìn thấy.</string>
     <string name="model_probe_failed">Yêu cầu %1$s gọi công cụ kiểm tra đã thất bại: %2$s</string>
     <string name="model_probe_timeout">%1$s không trả lời lời gọi công cụ kiểm tra trong vòng %2$d giây</string>
-    <string name="model_probe_no_tools">%1$s đã không gọi công cụ. Mika cần một mô hình biết gọi công cụ để làm việc. Nhà cung cấp đã được lưu, nhưng mô hình này chưa được đặt làm mô hình chính.</string>
+    <string name="model_probe_no_tools">%1$s đã không gọi công cụ. Phòng AI cần một mô hình biết gọi công cụ để làm việc. Nhà cung cấp đã được lưu, nhưng mô hình này chưa được đặt làm mô hình chính.</string>
     <string name="model_self_hosted_note">127.0.0.1 là chính điện thoại này. Nếu máy chủ chạy trên máy tính của bạn, hãy thay bằng địa chỉ mạng nội bộ của máy tính và cho phép máy chủ nhận kết nối từ mạng, không chỉ từ chính nó.</string>
     <string name="preset_custom">Tùy chỉnh</string>
     <string name="model_manual_name">Tên mô hình</string>
@@ -51,7 +51,7 @@
     <string name="model_manual_note">Khi đã điền tên mô hình, “Kiểm tra và lưu” chỉ thử mô hình đó: cách này hiệu quả ngay cả khi nhà cung cấp này không có danh sách mô hình, danh sách thiếu mô hình đó, hoặc việc liệt kê thất bại. Chỉ khi lần gọi kiểm tra thành công thì mới được lưu.</string>
     <string name="model_save_untested">Không kiểm tra, cứ lưu</string>
     <string name="model_save_untested_title">Lưu mà không kiểm tra?</string>
-    <string name="model_save_untested_body">Mika sẽ lưu nhà cung cấp này với địa chỉ và khóa bạn đã nhập, mà không liệt kê mô hình hay gọi kiểm tra. Mika cần một mô hình biết gọi công cụ để làm việc, và mô hình chưa kiểm tra có thể không kết nối được hoặc không gọi được công cụ. Bạn có thể kiểm tra sau từ trang của nhà cung cấp.</string>
+    <string name="model_save_untested_body">Phòng AI sẽ lưu nhà cung cấp này với địa chỉ và khóa bạn đã nhập, mà không liệt kê mô hình hay gọi kiểm tra. Phòng AI cần một mô hình biết gọi công cụ để làm việc, và mô hình chưa kiểm tra có thể không kết nối được hoặc không gọi được công cụ. Bạn có thể kiểm tra sau từ trang của nhà cung cấp.</string>
     <string name="model_save_untested_confirm">Vẫn lưu</string>
     <string name="model_saved_untested">%1$s đã được lưu mà chưa kiểm tra. Nó được đánh dấu là chưa kiểm tra; hãy chọn một mô hình để kiểm tra, hoặc kiểm tra lại từ trang của nhà cung cấp.</string>
     <string name="cap_typed">Nhập tay</string>
@@ -63,14 +63,14 @@
     <string name="model_example_grok">VD: grok-4</string>
     <string name="model_probe_not_found">Mô hình “%1$s” không tồn tại. Hãy nhập đầy đủ ID mô hình từ tài liệu của nhà cung cấp (%2$s).</string>
     <string name="model_probe_not_found_no_list">Không liệt kê được mô hình nào, và lần gọi kiểm tra với “%1$s” cũng không tìm thấy: có thể địa chỉ hoặc loại giao diện chưa đúng, hoặc không có mô hình đó (tên mô hình trông như: %2$s).</string>
-    <string name="model_probe_no_tools_pick">%1$s đã không gọi công cụ. Mika cần một mô hình biết gọi công cụ để làm việc; hãy chọn một mô hình chính khác.</string>
+    <string name="model_probe_no_tools_pick">%1$s đã không gọi công cụ. Phòng AI cần một mô hình biết gọi công cụ để làm việc; hãy chọn một mô hình chính khác.</string>
     <string name="model_preset_match">Đây là địa chỉ chính thức của %1$s. Cấu hình sẵn của nó sẽ điền địa chỉ và loại giao diện giúp bạn.</string>
     <string name="model_preset_kind_mismatch">Loại giao diện cũng không khớp: %1$s dùng giao diện %2$s, nhưng đang chọn %3$s.</string>
     <string name="model_use_preset">Dùng cấu hình sẵn của %1$s</string>
     <string name="model_probe_not_available">Tài khoản này chưa kích hoạt “%1$s” hoặc không có quyền dùng nó (nhà cung cấp cho biết: %2$s). Hãy chọn một mô hình khác, hoặc kích hoạt trong bảng điều khiển của nhà cung cấp.</string>
     <string name="model_reason_not_available">tài khoản này chưa kích hoạt mô hình này hoặc không có quyền dùng nó (nhà cung cấp cho biết: %1$s)</string>
     <string name="model_reason_not_found">nhà cung cấp không có mô hình đó</string>
-    <string name="model_reason_no_tools">nó không gọi công cụ, mà Mika cần một mô hình biết gọi công cụ</string>
+    <string name="model_reason_no_tools">nó không gọi công cụ, mà Phòng AI cần một mô hình biết gọi công cụ</string>
     <string name="model_reason_wrong_protocol">nó không được phục vụ qua loại giao diện bạn đã chọn, nên yêu cầu không bao giờ tới được nó</string>
     <string name="model_reason_server">máy chủ trả về lỗi (%1$s)</string>
     <string name="model_probe_none_usable">Nhà cung cấp đã kết nối, nhưng “%1$s” không qua được kiểm tra: %2$s. Hãy chọn một mô hình trong danh sách mà tài khoản của bạn đã kích hoạt.</string>

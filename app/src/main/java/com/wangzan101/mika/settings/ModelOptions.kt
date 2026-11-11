@@ -86,6 +86,7 @@ object ModelOptions {
 
     private val NON_CHAT_WORDS = listOf(
         "embed", "rerank", "tts", "whisper", "transcribe", "speech", "audio", "realtime", "image", "dall", "moderation", "ocr", "asr",
+        "guard", "safeguard", "orpheus", "voice",
     )
 
     /** 上下文长度的短写:64K、1M。 */

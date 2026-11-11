@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="trigger_reminder">Nhắc nhở của Mika</string>
+    <string name="trigger_reminder">Nhắc nhở của Phòng AI</string>
     <string name="trigger_not_started_body">Một tác vụ đã lên lịch không khởi động được. Kiểm tra nó trên trang Tác vụ đã lên lịch và chạy lại.</string>
     <string name="trigger_start_failed">Khởi động thất bại</string>
     <string name="trigger_not_started">Tác vụ đã lên lịch không khởi động</string>
-    <string name="trigger_interrupted_body">Một tác vụ đã lên lịch bị gián đoạn và không xác nhận được kết quả của nó. Hãy kiểm tra điều gì thực sự đã xảy ra trước; Mika sẽ không tự lặp lại nó.</string>
+    <string name="trigger_interrupted_body">Một tác vụ đã lên lịch bị gián đoạn và không xác nhận được kết quả của nó. Hãy kiểm tra điều gì thực sự đã xảy ra trước; Phòng AI sẽ không tự lặp lại nó.</string>
     <string name="trigger_unconfirmed">Kết quả tác vụ đã lên lịch cần kiểm tra</string>
     <string name="trigger_unlock_failed">Tác vụ đã lên lịch không đánh thức hoặc mở khóa được điện thoại. Hãy mở khóa trước lần chạy tiếp theo, hoặc kiểm tra “Cho phép đánh thức và mở khóa từ xa” cùng thông tin khóa màn hình đã lưu trong Cài đặt › Kết nối máy tính.</string>
     <string name="trigger_alarm_title">Tác vụ đã lên lịch cần quyền "Báo thức &amp; nhắc nhở"</string>
@@ -13,7 +13,7 @@
     <string name="plans_alarm_body">Không có quyền này, tác vụ đã lên lịch có thể chạy muộn hoặc không chạy. Bạn chỉ cần bật nó một lần.</string>
     <string name="plans_running_n">Đang bật %1$d</string>
     <string name="plans_stopped_n">Đã tắt %1$d</string>
-    <string name="plans_empty">Chưa có tác vụ đã lên lịch nào\nChạm + để tạo một tác vụ, hoặc nói với Mika trong cuộc trò chuyện khi nào nhắc bạn hoặc làm gì đó cho bạn.</string>
+    <string name="plans_empty">Chưa có tác vụ đã lên lịch nào\nChạm + để tạo một tác vụ, hoặc nói với Phòng AI trong cuộc trò chuyện khi nào nhắc bạn hoặc làm gì đó cho bạn.</string>
     <string name="plans_none_running">Không có tác vụ đã lên lịch nào đang bật</string>
     <string name="plans_none_stopped">Không có tác vụ đã lên lịch nào đã tắt</string>
     <string name="plans_footer">Dùng + để tự tạo tác vụ, hoặc nói “mỗi ngày lúc 8…” hay “cho tôi biết khi giá giảm” trong cuộc trò chuyện; kết quả sẽ gửi về cuộc trò chuyện đó. Các lần chạy theo giờ có thể bị ảnh hưởng bởi tiết kiệm pin; tắt hoặc xóa chỉ ảnh hưởng các lần chạy sau.</string>
@@ -28,7 +28,7 @@
     <string name="plans_add">Tác vụ đã lên lịch mới</string>
     <string name="plans_task_mode">Chạy một tác vụ</string>
     <string name="plans_reminder_mode">Chỉ nhắc nhở</string>
-    <string name="plans_content_task">Mika nên làm gì?</string>
+    <string name="plans_content_task">Phòng AI nên làm gì?</string>
     <string name="plans_content_reminder">Nội dung nhắc nhở</string>
     <string name="plans_repeat_interval">Khoảng lặp</string>
     <string name="plans_repeat_weekly">Hằng tuần</string>
@@ -39,7 +39,7 @@
     <string name="plans_notify_change">Khi có thay đổi</string>
     <string name="plans_notify_each">Mỗi lần</string>
     <string name="plans_cooldown_minutes">Số phút tối thiểu giữa các lần chạy (tùy chọn)</string>
-    <string name="plans_when_idle">Chỉ chạy khi Mika đang rảnh</string>
+    <string name="plans_when_idle">Chỉ chạy khi Phòng AI đang rảnh</string>
     <string name="plans_enabled">Đã bật</string>
     <string name="plans_error_content">Nhập một tác vụ hoặc nhắc nhở</string>
     <string name="plans_error_content_long">Dùng tối đa 4.000 ký tự, hoặc 2.000 cho nhắc nhở</string>

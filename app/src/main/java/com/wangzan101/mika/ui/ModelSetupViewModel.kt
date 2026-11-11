@@ -254,8 +254,9 @@ data class ModelSetupUi(
 
     fun providerOf(cfg: ProviderConfig): Provider? = providers.firstOrNull { it.id == cfg.providerId }
 
-    /** 一个服务商可选的全部模型(记住的列表加已有配置)。 */
+    /** 一个服务商可选的全部模型(记住的列表加已有配置)。Phòng AI: mô hình không phải chat (nghe giọng nói, đọc thành tiếng, gác cổng...) bị ẩn khỏi mọi danh sách chọn cho gọn; mô hình đang được gán vai thì vẫn hiện để còn gỡ ra được. */
     fun options(p: Provider): List<ModelOption> = ModelOptions.ofProvider(p, configs)
+        .filter { o -> !ModelOptions.looksNonChat(o) || rolesOf(p.id, o.id).isNotEmpty() }
 
     /** 一个服务商的全部模型,在用的排前面,其余保持原来的顺序。 */
     fun sortedOptions(p: Provider): List<ModelOption> = options(p).sortedBy { if (rolesOf(p.id, it.id).isEmpty()) 1 else 0 }

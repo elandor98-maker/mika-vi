@@ -81,7 +81,7 @@ object ProviderPresets {
         ProviderPreset("xAI", ProviderConfig.Kind.OpenAiCompat, "https://api.x.ai/v1", caps(vision = true, context = 256_000), familyTokens = listOf("grok")),
         // 列模型接口写明每个模型能不能调用工具、看图和上下文长度
         ProviderPreset("Mistral", ProviderConfig.Kind.OpenAiCompat, "https://api.mistral.ai/v1", caps(vision = true, context = 128_000), familyTokens = listOf("mistral")),
-        ProviderPreset("Groq", ProviderConfig.Kind.OpenAiCompat, "https://api.groq.com/openai/v1", caps(context = 128_000)),
+        ProviderPreset("Groq", ProviderConfig.Kind.OpenAiCompat, "https://api.groq.com/openai/v1", caps(context = 128_000), familyTokens = listOf("gpt-oss")),
         // Hàng free hào phóng nhất cho tác vụ agent: 1 triệu token/ngày (kiểm chứng 11/2026); chạy Llama/Qwen/GPT-OSS của hãng khác nên không gắn familyTokens như các nhà đa mô hình khác
         ProviderPreset("Cerebras", ProviderConfig.Kind.OpenAiCompat, "https://api.cerebras.ai/v1", caps(context = 128_000)),
         // 自己机器上跑的:地址是本机的默认端口,跑在电脑上时改成电脑的局域网地址;不要 Key

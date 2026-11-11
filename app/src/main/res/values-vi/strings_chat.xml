@@ -5,7 +5,7 @@
     <string name="chat_greeting_afternoon">Chào buổi chiều</string>
     <string name="chat_greeting_evening">Chào buổi tối</string>
     <string name="chat_greeting_night">Thức khuya</string>
-    <string name="chat_empty_prompt">Mika nên làm gì?</string>
+    <string name="chat_empty_prompt">Phòng AI nên làm gì?</string>
     <string name="chat_example_github_star">Mở https://github.com/wangzan101/mika và tặng sao cho dự án.</string>
     <string name="chat_example_follow">Mở X, tìm Wang Zan (@wangzan101) và theo dõi tài khoản.</string>
     <string name="chat_example_group_summary">Mở WhatsApp và tóm tắt các tin nhắn chưa đọc hôm nay, làm nổi bật những tin cần tôi trả lời.</string>
@@ -47,7 +47,7 @@
     </plurals>
     <string name="chat_background_note">Đang chạy trong nền — cứ tiếp tục dùng điện thoại. Chạm vào khung xem nhỏ để phóng to.</string>
     <string name="chat_placeholder_busy">Thêm hoặc thay đổi chi tiết…</string>
-    <string name="chat_placeholder_answer">Trả lời câu hỏi của Mika</string>
+    <string name="chat_placeholder_answer">Trả lời câu hỏi của Phòng AI</string>
     <string name="chat_placeholder_more">Nói thêm điều gì đó…</string>
     <string name="chat_cannot_start">Chưa thể bắt đầu tác vụ</string>
     <string name="chat_missing">Thiếu: %1$s</string>
@@ -57,7 +57,7 @@
     <string name="chat_expand_steps">Hiện các bước</string>
     <string name="chat_collapse_steps">Ẩn các bước</string>
     <string name="chat_view_process">Xem quá trình thực hiện</string>
-    <string name="chat_unlock_body">Điện thoại của bạn đang khóa. Mika sẽ tiếp tục ngay khi bạn mở khóa.</string>
+    <string name="chat_unlock_body">Điện thoại của bạn đang khóa. Phòng AI sẽ tiếp tục ngay khi bạn mở khóa.</string>
     <string name="chat_input_body">%1$s\nChạm vào một tùy chọn hoặc nhập bên dưới. %2$s</string>
     <string name="chat_refuse">Từ chối</string>
     <string name="chat_allow_once">Cho phép lần này</string>
@@ -129,11 +129,11 @@
     <string name="attach_album">Ảnh</string>
     <string name="attach_files">Tệp</string>
     <string name="attach_recent">Ảnh gần đây</string>
-    <string name="attach_recent_partial">Ảnh bạn cho phép Mika truy cập</string>
+    <string name="attach_recent_partial">Ảnh bạn cho phép Phòng AI truy cập</string>
     <string name="attach_all">Tất cả ảnh</string>
     <string name="attach_change">Đổi quyền truy cập</string>
     <string name="attach_no_photos">Chưa có ảnh nào</string>
-    <string name="attach_need_access">Để chọn ảnh tại đây, hãy cho phép Mika truy cập ảnh của bạn</string>
+    <string name="attach_need_access">Để chọn ảnh tại đây, hãy cho phép Phòng AI truy cập ảnh của bạn</string>
     <string name="attach_grant">Cho phép truy cập ảnh</string>
     <string name="attach_grant_hint">Bạn cũng có thể chạm vào “Ảnh” phía trên để dùng trình chọn ảnh của hệ thống</string>
     <string name="attach_full">Tối đa %1$d tệp đính kèm mỗi lần</string>
@@ -153,10 +153,10 @@
     <string name="attach_file_and_more">%1$s và %2$d tệp nữa</string>
     <string name="screen_tag">Màn hình của bạn lúc này</string>
     <string name="screen_blocked">Không chụp được: trang này không cho phép chụp màn hình</string>
-    <string name="screen_camera">Chụp màn hình này cho Mika</string>
+    <string name="screen_camera">Chụp màn hình này cho Phòng AI</string>
     <string name="screen_remove">Xóa ảnh chụp màn hình này</string>
-    <string name="screen_send">Gửi màn hình hiện tại cho Mika</string>
-    <string name="pip_screen">Màn hình ảo của Mika</string>
+    <string name="screen_send">Gửi màn hình hiện tại cho Phòng AI</string>
+    <string name="pip_screen">Màn hình ảo của Phòng AI</string>
     <string name="collapse">Thu gọn</string>
     <string name="no_app_for_link">Không có ứng dụng nào mở được liên kết này</string>
     <string name="source_none">Không có nguồn nào được lưu cho câu trả lời này</string>
@@ -181,7 +181,7 @@
     <string name="chat_retry_failed">%1$s: không sao chép được</string>
     <string name="chat_select_hint">Nhấn giữ văn bản để chọn</string>
     <string name="chat_quote_remove">Xóa trích dẫn</string>
-    <string name="chat_quoting_mika">Đang trích dẫn Mika: %1$s</string>
+    <string name="chat_quoting_mika">Đang trích dẫn Phòng AI: %1$s</string>
     <string name="chat_quoting_you">Đang trích dẫn bạn: %1$s</string>
     <string name="chat_edit_message">Chỉnh sửa tin nhắn</string>
     <string name="chat_withdraw_message">Thu hồi tin nhắn</string>

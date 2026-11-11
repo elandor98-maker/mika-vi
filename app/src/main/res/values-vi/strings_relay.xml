@@ -19,8 +19,8 @@
     <string name="relay_unpair">Hủy ghép đôi cổng chuyển tiếp</string>
     <string name="relay_unpair_body">Ngắt kết nối điện thoại này khỏi cổng chuyển tiếp. Cần có kết nối internet. Token truy cập của điện thoại giữ nguyên.</string>
     <string name="relay_failed">Không hoàn tất được. Kiểm tra địa chỉ cổng chuyển tiếp, kết nối internet và mã ghép đôi. Nếu hủy ghép đôi thất bại, quyền truy cập đã tắt; hãy thử lại hoặc thu hồi điện thoại trên cổng chuyển tiếp.</string>
-    <string name="relay_notif_body">Truy cập từ xa đang bật. Mở Mika để kiểm tra kết nối cổng chuyển tiếp.</string>
-    <string name="relay_incompatible">Cập nhật Mika và cổng chuyển tiếp lên phiên bản khớp nhau</string>
+    <string name="relay_notif_body">Truy cập từ xa đang bật. Mở Phòng AI để kiểm tra kết nối cổng chuyển tiếp.</string>
+    <string name="relay_incompatible">Cập nhật Phòng AI và cổng chuyển tiếp lên phiên bản khớp nhau</string>
     <string name="relay_copy_gateway">Sao chép địa chỉ cổng chuyển tiếp</string>
     <string name="relay_cli_help">Lưu token truy cập vào một tệp trên máy tính, rồi chạy lệnh kết nối ở trên.</string>
     <string name="relay_intro">Cổng chuyển tiếp chuyển các yêu cầu CLI và MCP thường gửi qua Wi-Fi / LAN tới điện thoại của bạn để truy cập từ xa. Hãy triển khai nó trên máy chủ công khai của riêng bạn trước khi ghép đôi.</string>

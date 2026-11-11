@@ -2,7 +2,7 @@
 <resources>
     <string name="appaccess_title">Quyền truy cập ứng dụng</string>
     <string name="appaccess_row_sub">Chặn ứng dụng và chia sẻ màn hình theo từng ứng dụng</string>
-    <string name="appaccess_intro">Chọn những ứng dụng Mika được đọc và thao tác bằng các công cụ điện thoại tiêu chuẩn. Lệnh shell, hộp cát và truy cập máy tính (MCP) không bị giới hạn bởi cài đặt này.</string>
+    <string name="appaccess_intro">Chọn những ứng dụng Phòng AI được đọc và thao tác bằng các công cụ điện thoại tiêu chuẩn. Lệnh shell, hộp cát và truy cập máy tính (MCP) không bị giới hạn bởi cài đặt này.</string>
     <string name="appaccess_privacy">Việc phân loại sẽ gửi tên ứng dụng và tên gói tới mô hình AI; “Làm mới danh sách ứng dụng” sẽ hỏi bạn trước.</string>
     <string name="appaccess_unavailable">Không đọc được cài đặt quyền truy cập ứng dụng nên quyền truy cập điện thoại tiêu chuẩn đã tạm dừng. Đặt lại sẽ xóa các quyền và phân loại đã lưu.</string>
     <string name="appaccess_reset">Đặt lại quyền truy cập ứng dụng</string>
@@ -23,7 +23,7 @@
     <string name="appaccess_cancel">Hủy</string>
 
     <string name="appaccess_recommend_title">Nên chặn: ứng dụng tài chính</string>
-    <string name="appaccess_recommend_body">Các ứng dụng này được phân loại là tài chính hoặc thanh toán, và Mika vẫn có thể thao tác chúng. Hãy chặn từng ứng dụng một, hoặc chặn tất cả cùng lúc.</string>
+    <string name="appaccess_recommend_body">Các ứng dụng này được phân loại là tài chính hoặc thanh toán, và Phòng AI vẫn có thể thao tác chúng. Hãy chặn từng ứng dụng một, hoặc chặn tất cả cùng lúc.</string>
     <string name="appaccess_recommend_empty">Không có gì cần chặn.</string>
     <string name="appaccess_block">Chặn</string>
     <string name="appaccess_block_all">Chặn tất cả</string>

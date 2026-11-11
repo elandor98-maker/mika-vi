@@ -86,7 +86,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
             return
         }
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("Mika ${release.version}")
+            .setTitle("Phòng AI ${release.version}")
             .setMimeType("application/vnd.android.package-archive")
             // 只在下载中显示通知:完成后的通知一点就会绕过下面的校验直接打开安装包,所以不留。
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)

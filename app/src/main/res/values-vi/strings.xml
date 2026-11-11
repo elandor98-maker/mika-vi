@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="a11y_service_description">Quyền hệ thống này cho phép Mika đọc và thao tác những gì có trên bất kỳ màn hình nào. Mika chỉ dùng nó trên màn hình ảo của riêng mình để thực hiện các tác vụ bạn giao, và chỉ thao tác trên màn hình chính của bạn khi bạn giao một tác vụ tại đó.</string>
+    <string name="a11y_service_description">Quyền hệ thống này cho phép Phòng AI đọc và thao tác những gì có trên bất kỳ màn hình nào. Phòng AI chỉ dùng nó trên màn hình ảo của riêng mình để thực hiện các tác vụ bạn giao, và chỉ thao tác trên màn hình chính của bạn khi bạn giao một tác vụ tại đó.</string>
     <string name="channel_attention">Cần bạn xử lý</string>
     <string name="takeover_title">Cần bạn xử lý</string>
     <string name="takeover_title_reason">Cần bạn xử lý: %1$s</string>
@@ -12,15 +12,15 @@
     <string name="takeover_handed_over_hint">Ứng dụng hiện đang ở trên màn hình chính của bạn. Chạm vào “Xong” khi bạn hoàn tất; nếu bạn đã tự làm toàn bộ, chạm vào “Tôi đã tự làm xong”.</string>
     <string name="takeover_web_busy">Một phiên đăng nhập trang web đang mở trong Cài đặt. Hãy chạm vào “Xong” ở đó trước, rồi chạm vào “Tôi sẽ xử lý”.</string>
     <string name="takeover_move_to_main_failed">Không chuyển được ứng dụng sang màn hình chính. Chạm vào “Tôi sẽ xử lý” để thử lại.</string>
-    <string name="takeover_move_back_failed">Không chuyển được ứng dụng về màn hình của Mika. Hãy thử lại.</string>
+    <string name="takeover_move_back_failed">Không chuyển được ứng dụng về màn hình của Phòng AI. Hãy thử lại.</string>
     <string name="action_take_over">Tôi sẽ xử lý</string>
     <string name="action_hand_back">Xong</string>
     <string name="action_finished_myself">Tôi đã tự làm xong</string>
     <string name="action_skip">Bỏ qua</string>
     <string name="action_cancel_task">Hủy tác vụ</string>
     <string name="input_title">Cần bạn trả lời</string>
-    <string name="no_answer_note">Nếu không có câu trả lời trong %1$d phút, Mika sẽ tiếp tục mà không cần trả lời.</string>
-    <string name="input_too_late">Đã quá muộn: sau %1$d phút, Mika đã tiếp tục mà không có câu trả lời.</string>
+    <string name="no_answer_note">Nếu không có câu trả lời trong %1$d phút, Phòng AI sẽ tiếp tục mà không cần trả lời.</string>
+    <string name="input_too_late">Đã quá muộn: sau %1$d phút, Phòng AI đã tiếp tục mà không có câu trả lời.</string>
     <string name="action_approve">Chấp thuận</string>
     <string name="action_decline">Từ chối</string>
     <string name="confirmation_locked_hint">Mở khóa để xem người nhận và nội dung</string>
@@ -127,7 +127,7 @@
     <string name="terminal_close_confirm">Đóng</string>
     <string name="terminal_retry">Mở lại</string>
     <string name="terminal_stop">Dừng</string>
-    <string name="terminal_task_running">Mika cũng đang làm việc trong không gian này; thay đổi từ hai phía có thể ảnh hưởng lẫn nhau.</string>
+    <string name="terminal_task_running">Phòng AI cũng đang làm việc trong không gian này; thay đổi từ hai phía có thể ảnh hưởng lẫn nhau.</string>
     <string name="terminal_copy_all">Sao chép tất cả</string>
     <string name="terminal_copied">Đã sao chép</string>
 </resources>

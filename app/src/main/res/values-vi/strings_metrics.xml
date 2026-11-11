@@ -6,8 +6,8 @@
     <string name="metrics_other">Khác (chờ, thử lại)</string>
     <string name="metrics_title">Thống kê lần chạy</string>
     <string name="metrics_sub">Thời gian, lượt gọi mô hình và token của các lần chạy gần đây</string>
-    <string name="metrics_empty">Chưa có thống kê lần chạy nào. Hãy yêu cầu Mika làm gì đó và nó sẽ được ghi lại ở đây.</string>
-    <string name="metrics_note">Chỉ tính %1$d lần chạy gần nhất trên điện thoại này. Thời gian bắt đầu khi Mika bắt đầu làm việc; phản hồi đầu tiên là lúc bạn lần đầu thấy nó đang làm gì.</string>
+    <string name="metrics_empty">Chưa có thống kê lần chạy nào. Hãy yêu cầu Phòng AI làm gì đó và nó sẽ được ghi lại ở đây.</string>
+    <string name="metrics_note">Chỉ tính %1$d lần chạy gần nhất trên điện thoại này. Thời gian bắt đầu khi Phòng AI bắt đầu làm việc; phản hồi đầu tiên là lúc bạn lần đầu thấy nó đang làm gì.</string>
     <string name="metrics_copy">Sao chép JSON</string>
     <string name="metrics_share">Chia sẻ JSON</string>
     <string name="metrics_last_10">10 lần gần nhất</string>

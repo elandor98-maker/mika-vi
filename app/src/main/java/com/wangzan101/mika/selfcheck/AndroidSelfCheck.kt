@@ -196,7 +196,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         val s = screen ?: AndroidScreen(a11y, sh, LazyAgentDisplay(d.width, d.height) { d }.also { it.get() }).also { screen = it }
         val own = s.openOwnPage(SelfCheckTargetActivity.intent(app))
         if (own !is ActionResult.Ok || topPackage(sh, d.displayId) != app.packageName) {
-            return CheckOutcome.fail("Mika's test page did not open on Mika's display (${reason(own)})", Advice.LaunchFailed)
+            return CheckOutcome.fail("Phòng AI's test page did not open on Phòng AI's display (${reason(own)})", Advice.LaunchFailed)
         }
         sampleMain(sh, "test page")
         // 先关掉自检页再开系统设置:之后从头开一页,不靠把旧的那一页翻回前面
@@ -212,7 +212,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
                 s.back()
                 when {
                     onMain -> SETTINGS_ON_MAIN
-                    !onMika -> "Settings did not come to the front of Mika's display"
+                    !onMika -> "Settings did not come to the front of Phòng AI's display"
                     else -> null
                 }
             }
@@ -220,10 +220,10 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         // 后面几项在自检页上做:重新打开一次,从头来
         val again = s.openOwnPage(SelfCheckTargetActivity.intent(app))
         if (again !is ActionResult.Ok || !poll { withContext(Dispatchers.IO) { isTestPageOnTop(sh, d.displayId) } }) {
-            return CheckOutcome.fail("Mika's test page did not reopen after Settings (${reason(again)})", Advice.LaunchFailed)
+            return CheckOutcome.fail("Phòng AI's test page did not reopen after Settings (${reason(again)})", Advice.LaunchFailed)
         }
         return when (settingsNote) {
-            null -> CheckOutcome.pass("Mika's test page and Settings opened on Mika's display")
+            null -> CheckOutcome.pass("Phòng AI's test page and Settings opened on Phòng AI's display")
             SETTINGS_ON_MAIN -> CheckOutcome.fail("test page ok; $settingsNote", Advice.OpenedOnMainScreen)
             SETTINGS_IN_USE -> CheckOutcome.partial("test page ok; $settingsNote", Advice.SettingsInUse)
             else -> CheckOutcome.partial("test page ok; $settingsNote", Advice.LaunchFailed)
@@ -251,13 +251,13 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         }
         val result = inspected
         if (!result.ready) {
-            val wrongApp = if (result.wrongAppOnTop) "; another app is above Mika" else ""
+            val wrongApp = if (result.wrongAppOnTop) "; another app is above Phòng AI" else ""
             return CheckOutcome.fail(
                 "missing ${result.missing.joinToString().ifEmpty { "none" }}; ${seen(result.content ?: snap)}$wrongApp",
                 Advice.ReadFailed,
             )
         }
-        val content = result.content ?: return CheckOutcome.fail("Mika's window is not readable", Advice.ReadFailed)
+        val content = result.content ?: return CheckOutcome.fail("Phòng AI's window is not readable", Advice.ReadFailed)
         val frame = awaitFrame(d) ?: return CheckOutcome.fail("tree ok; no screenshot from the display", Advice.BlankFrames)
         val blank = try {
             val grid = FrameMath.lumaGrid(frame.width, frame.height, frame::getPixel)
@@ -266,7 +266,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
             frame.recycle()
         }
         if (blank) return CheckOutcome.fail("tree ok; screenshot is blank or black", Advice.BlankFrames)
-        return CheckOutcome.pass("${content.elements.size} Mika-window elements, all expected found; screenshot not blank")
+        return CheckOutcome.pass("${content.elements.size} Phòng AI-window elements, all expected found; screenshot not blank")
     }
 
     // ---------- 7 动作 ----------
@@ -338,7 +338,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         val s = screen ?: return CheckOutcome.fail("no screen", Advice.LaunchFailed)
         val d = display ?: return CheckOutcome.fail("no display", Advice.DisplayFailed)
         if (s.openOwnPage(SelfCheckTargetActivity.intent(app)) !is ActionResult.Ok) {
-            return CheckOutcome.fail("Mika's test page did not reopen", Advice.LaunchFailed)
+            return CheckOutcome.fail("Phòng AI's test page did not reopen", Advice.LaunchFailed)
         }
         val start = SystemClock.uptimeMillis()
         var lastChange = start
@@ -561,7 +561,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         val n = snap.elements.size
         val first = snap.elements.take(SEEN_ELEMENTS)
         return when {
-            pkg == app.packageName -> "saw Mika, $n elements: " + first.joinToString { (it.resourceId ?: it.name).take(SEEN_CHARS) }
+            pkg == app.packageName -> "saw Phòng AI, $n elements: " + first.joinToString { (it.resourceId ?: it.name).take(SEEN_CHARS) }
             pkg == null -> "saw no readable window, $n elements"
             systemPackage(pkg) -> "saw $pkg, $n elements: " + first.joinToString { (it.resourceId ?: it.role).take(SEEN_CHARS) }
             else -> "saw another app, $n elements"

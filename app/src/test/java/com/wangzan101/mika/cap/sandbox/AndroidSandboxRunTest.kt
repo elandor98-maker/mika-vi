@@ -101,7 +101,7 @@ class AndroidSandboxRunTest {
             calls += String(g.read(0, 100)) to n; fail?.let { throw it }; com.wangzan101.mika.chat.SharedFile(n, g.size, "Download/Mika/$n", "content://x")
         })
         val f = sb.hostPath("c1", "out/a.txt", forWrite = true)!!.apply { parentFile?.mkdirs(); writeText("a") }
-        assertEquals("Download/Mika/a.txt", sb.share(f, "a.txt"))
+        assertEquals("Download/PhongAI/a.txt", sb.share(f, "a.txt"))
         assertEquals("a" to "a.txt", calls.single())
         // 工作区里的硬链接(可能链着 Mika 的私有文件)不导出
         val private = File(tmp, "s2/private.db").apply { writeText("secret") }

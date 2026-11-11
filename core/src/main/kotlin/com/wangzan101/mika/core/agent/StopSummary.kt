@@ -79,22 +79,22 @@ class StopSummary(
             for (a in events.filterIsInstance<RunEvent.Activity>()) {
                 val where = a.target?.let { where(it, appLabel) }
                 val what = listOfNotNull(label(a.label), where, a.title?.takeIf(String::isNotBlank)).joinToString(" · ")
-                val tags = listOfNotNull("对外发出".takeIf { a.outward && !a.failed }, "没成功".takeIf { a.failed })
-                val line = "第 ${a.step} 步 $what" + if (tags.isEmpty()) "" else "(${tags.joinToString("、")})"
+                val tags = listOfNotNull("Đã gửi đi".takeIf { a.outward && !a.failed }, "Không thành công".takeIf { a.failed })
+                val line = "Bước ${a.step}: $what" + if (tags.isEmpty()) "" else "(${tags.joinToString(", ")})"
                 // 连着读同一处只记一行
                 if (a.kind == "observe" && line == lastObserve) continue
                 lastObserve = if (a.kind == "observe") line else null
                 val note = notes[a.step]?.takeIf { said.add(a.step) }
-                lines += if (note == null) line else "$line —— 用意:$note"
+                lines += if (note == null) line else "$line —— Ý định: $note"
             }
             val shown = if (lines.size <= MAX_LINES) lines
-                else lines.take(20) + "…(中间省略 ${lines.size - MAX_LINES} 件)…" + lines.takeLast(MAX_LINES - 20)
+                else lines.take(20) + "…(đã lược bỏ ${lines.size - MAX_LINES} mục ở giữa)…" + lines.takeLast(MAX_LINES - 20)
             val reads = events.filterIsInstance<RunEvent.Observed>().filter { it.kind == ObsKind.Read.wire && it.text.isNotBlank() }
                 .takeLast(MAX_READS).map { it.text.clip(READ_CHARS) }
             val checkpoint = events.filterIsInstance<RunEvent.Criteria>().lastOrNull { it.criteria.isNotEmpty() || it.progress != null }
             return buildString {
                 append("<request>\n").append(untag(goal)).append("\n</request>\n\n")
-                append("<actions>\n").append(untag(shown.joinToString("\n").ifEmpty { "(还没做任何操作)" })).append("\n</actions>")
+                append("<actions>\n").append(untag(shown.joinToString("\n").ifEmpty { "(chưa thực hiện thao tác nào)" })).append("\n</actions>")
                 checkpoint?.let { c ->
                     if (c.criteria.isNotEmpty()) append("\n\n<acceptance>\n").append(untag(c.criteria.joinToString("\n"))).append("\n</acceptance>")
                     c.progress?.let { p -> append("\n\n<progress>\n").append(untag(progress(p))).append("\n</progress>") }
@@ -114,31 +114,31 @@ class StopSummary(
             val lines = mutableListOf<String>()
             val places = acts.mapNotNull { a -> a.target?.let { placeOf(it, appLabel) } }.distinct()
             val seen = acts.filter { it.kind == "observe" && !it.failed && !it.title.isNullOrBlank() }
-                .map { listOfNotNull(it.target?.let { t -> where(t, appLabel) }, it.title).joinToString("的") }.distinct()
+                .map { listOfNotNull(it.target?.let { t -> where(t, appLabel) }, it.title).joinToString(" · ") }.distinct()
             val done = acts.filter { it.kind != "observe" && !it.failed && !it.outward }
                 .groupingBy { label(it.label) }.eachCount()
             val outward = acts.filter { it.outward && !it.failed }
             val failed = acts.count { it.failed }
             val checkpoint = events.filterIsInstance<RunEvent.Criteria>().lastOrNull { it.criteria.isNotEmpty() || it.progress != null }
-            if (places.isNotEmpty()) lines += "去过:" + list(places, 4)
-            if (seen.isNotEmpty()) lines += "看过:" + list(seen, 4)
-            if (done.isNotEmpty()) lines += "做过:" + done.entries.joinToString("、") { (what, n) -> if (n > 1) "$what $n 次" else what }
+            if (places.isNotEmpty()) lines += "Đã mở: " + list(places, 4)
+            if (seen.isNotEmpty()) lines += "Đã xem: " + list(seen, 4)
+            if (done.isNotEmpty()) lines += "Đã làm: " + done.entries.joinToString(", ") { (what, n) -> if (n > 1) "$what $n lần" else what }
             checkpoint?.let { c ->
-                if (c.criteria.isNotEmpty()) lines += "验收:" + c.criteria.joinToString("；")
-                c.progress?.let { p -> lines += "已确认进度:" + progress(p) }
+                if (c.criteria.isNotEmpty()) lines += "Điều kiện hoàn thành: " + c.criteria.joinToString("; ")
+                c.progress?.let { p -> lines += "Tiến độ đã xác nhận: " + progress(p) }
             }
             if (outward.isNotEmpty()) {
                 val where = outward.mapNotNull { a -> a.target?.let { placeOf(it, appLabel) } }.distinct()
                 val which = outward.map { it.step }.distinct().mapNotNull(notes::get).distinct()
-                lines += "对外发出了 ${outward.size} 次" + (if (where.isEmpty()) "" else "(${where.joinToString("、")})") +
-                    (if (which.isEmpty()) "" else ":" + list(which, 5))
+                lines += "Đã gửi đi ${outward.size} lần" + (if (where.isEmpty()) "" else " (${where.joinToString(", ")})") +
+                    (if (which.isEmpty()) "" else ": " + list(which, 5))
             }
-            if (failed > 0) lines += "有 $failed 步没成功"
-            draft?.trim()?.takeIf(String::isNotEmpty)?.let { lines += "停下时正在写:" + it.clip(200) }
-            val head = if (acts.isEmpty()) "已经停下,还没开始操作。" else "已经停下,停止前做了这些:"
+            if (failed > 0) lines += "Có $failed bước không thành công"
+            draft?.trim()?.takeIf(String::isNotEmpty)?.let { lines += "Đang viết dở khi dừng: " + it.clip(200) }
+            val head = if (acts.isEmpty()) "Đã dừng, chưa bắt đầu thao tác nào." else "Đã dừng. Trước khi dừng đã làm những việc này:"
             val body = lines.joinToString("\n") { "- $it" }
-            val tail = if (checkpoint?.complete == true) "「${goal.trim().clip(40)}」已确认达到验收条件,但任务没有正常收尾。"
-                else "「${goal.trim().clip(40)}」还没做完的部分没有接着做。"
+            val tail = if (checkpoint?.complete == true) "「${goal.trim().clip(40)}」đã xác nhận đạt điều kiện hoàn thành, nhưng tác vụ chưa kết thúc bình thường."
+                else "「${goal.trim().clip(40)}」phần chưa làm xong sẽ không tự làm tiếp."
             return listOf(head, body, tail).filter(String::isNotEmpty).joinToString("\n")
         }
 
@@ -158,7 +158,7 @@ class StopSummary(
         private const val SITE_PREFIX = "网站 "
 
         private fun list(items: List<String>, max: Int) =
-            items.take(max).joinToString("、") + if (items.size > max) " 等 ${items.size} 处" else ""
+            items.take(max).joinToString(", ") + if (items.size > max) " …(tổng ${items.size} mục)" else ""
 
         /** 每一步模型写的话:先用回复里的进度说明,没有用调用参数里的用意(reason)。 */
         private fun notes(events: List<RunEvent>): Map<Int, String> {
@@ -178,7 +178,7 @@ class StopSummary(
         private fun progress(p: RunEvent.Progress): String {
             val count = when {
                 p.done != null && p.total != null -> "${p.done}/${p.total}"
-                p.done != null -> "${p.done} 件"
+                p.done != null -> "${p.done} mục"
                 else -> null
             }
             return listOfNotNull(p.name.takeIf(String::isNotBlank), count, p.boundary?.takeIf(String::isNotBlank)).joinToString(" · ")

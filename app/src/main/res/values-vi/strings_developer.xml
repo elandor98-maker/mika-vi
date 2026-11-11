@@ -16,12 +16,12 @@
     <string name="dev_parallel_sub">Tác vụ từ các cuộc trò chuyện khác nhau, mỗi tác vụ có một màn hình ảo riêng và chạy cùng lúc</string>
     <string name="dev_compaction">Tóm tắt có cấu trúc cho tác vụ dài</string>
     <string name="dev_compaction_sub">Khi nhiều bước cần được nén lại, ghi rõ mục tiêu, dữ kiện, tiến độ và bước tiếp theo</string>
-    <string name="dev_group">Cách Mika hoạt động</string>
+    <string name="dev_group">Cách Phòng AI hoạt động</string>
     <string name="dev_autonomy">Chế độ toàn quyền</string>
     <string name="dev_autonomy_sub">Khi bật, Phòng AI tự làm hết không cần hỏi, kể cả bước thanh toán trong các app thường; riêng app ngân hàng và ví tiền luôn bị chặn cứng, không công tắc nào gỡ được. Khi tắt, app sẽ hỏi trước khi thanh toán</string>
-    <string name="dev_note">Các công tắc này ảnh hưởng tới cách và tốc độ làm việc của Mika. Thường nên để mặc định.</string>
+    <string name="dev_note">Các công tắc này ảnh hưởng tới cách và tốc độ làm việc của Phòng AI. Thường nên để mặc định.</string>
     <string name="dev_grounding">Định vị bằng thị giác đã được xác minh</string>
-    <string name="dev_grounding_sub">Chỉ bật khi mô hình thị giác %1$s đã được kiểm tra là định vị chính xác; khi tắt, các vị trí nó đánh dấu cần thêm bằng chứng khác trước khi Mika chạm vào.</string>
+    <string name="dev_grounding_sub">Chỉ bật khi mô hình thị giác %1$s đã được kiểm tra là định vị chính xác; khi tắt, các vị trí nó đánh dấu cần thêm bằng chứng khác trước khi Phòng AI chạm vào.</string>
     <string name="dev_speed">Tốc độ</string>
     <string name="dev_experiments">Thử nghiệm</string>
     <string name="dev_run_log">Bản ghi chạy</string>

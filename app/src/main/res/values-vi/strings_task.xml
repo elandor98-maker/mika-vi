@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="notif_channel_prepare">Thiết lập nền</string>
-    <string name="notif_preparing">Mika đang chuẩn bị</string>
-    <string name="notif_result_title">Kết quả tác vụ của Mika</string>
+    <string name="notif_preparing">Phòng AI đang chuẩn bị</string>
+    <string name="notif_result_title">Kết quả tác vụ của Phòng AI</string>
     <string name="parallel_second_display_failed">Không tạo được màn hình ảo thứ hai, nên hiện tại mỗi lần chỉ chạy một tác vụ</string>
     <string name="parallel_needs_14">Chạy nhiều tác vụ cùng lúc cần Android 14 trở lên</string>
     <string name="parallel_low_ram">Điện thoại này có ít bộ nhớ, nên mỗi lần chỉ chạy một tác vụ</string>
     <string name="skill_suspended">Kỹ năng này gần đây không hoạt động tốt, nên đã tạm dừng</string>
     <string name="skill_verified">Kỹ năng đã hoạt động, nay dùng thường xuyên: %1$s</string>
-    <string name="skill_learned">Mika đã học một kỹ năng: %1$s</string>
-    <string name="skill_app_draft">Mika đã ghi chú vài thông tin về %1$s để bạn xem lại</string>
-    <string name="skill_app_revised">Mika đã sửa lại ghi chú về %1$s để bạn xem lại</string>
+    <string name="skill_learned">Phòng AI đã học một kỹ năng: %1$s</string>
+    <string name="skill_app_draft">Phòng AI đã ghi chú vài thông tin về %1$s để bạn xem lại</string>
+    <string name="skill_app_revised">Phòng AI đã sửa lại ghi chú về %1$s để bạn xem lại</string>
     <string name="recovered_result">Kết quả tác vụ đã khôi phục</string>
     <string name="recover_delivery_failed">Tác vụ trước đã hoàn thành, nhưng thông báo kết quả của nó bị lỗi. Hãy kiểm tra cuộc trò chuyện.</string>
     <string name="recover_maybe_delivered">Kết quả trước có thể đã được gửi rồi. Hãy kiểm tra cuộc trò chuyện trước để tránh làm hai lần.</string>
@@ -21,7 +21,7 @@
     <string name="gate_finish_app">“%1$s” cần bạn thao tác trên màn hình. Xong thì chạm Tiếp tục</string>
     <string name="gate_finish_unknown">Ứng dụng vừa mở cần bạn thao tác trên màn hình. Xong thì chạm Tiếp tục</string>
     <string name="gate_moved_away">Bạn đã mở ứng dụng này. Khi xong, hãy chạm Tiếp tục</string>
-    <string name="gate_move_back_failed">Không chuyển được ứng dụng về màn hình của Mika. Hãy chạm Tiếp tục để thử lại</string>
+    <string name="gate_move_back_failed">Không chuyển được ứng dụng về màn hình của Phòng AI. Hãy chạm Tiếp tục để thử lại</string>
     <string name="gate_shell_down">Điều khiển điện thoại đã mất kết nối. Hãy chạm Tiếp tục khi nó kết nối lại (hoặc sửa trong Cài đặt)</string>
     <plurals name="queue_ahead">
         <item quantity="other">Đang xếp hàng: còn %1$d tác vụ phía trước</item>
@@ -30,19 +30,19 @@
     <string name="fail_model_untested">Mô hình chính chưa qua kiểm tra trên %1$s. Hãy vào Cài đặt › Mô hình › %1$s và chạm “Kiểm tra lại” để kiểm tra.</string>
     <string name="fail_no_web">Web không khả dụng trên thiết bị này, nên việc kiểm tra điều kiện không chạy được</string>
     <string name="task_waiting_display">Đang xếp hàng: sẽ bắt đầu sau khi tác vụ kia kết thúc</string>
-    <string name="task_no_phone_helper">Điều khiển điện thoại chưa sẵn sàng. Hãy hoàn tất “Thiết lập điều khiển điện thoại” trong Mika. Các tác vụ web và tệp không bị ảnh hưởng.</string>
-    <string name="task_no_a11y">Dịch vụ hỗ trợ tiếp cận của Mika đang tắt. Hãy bật Mika trong mục Hỗ trợ tiếp cận của cài đặt hệ thống.</string>
-    <string name="task_a11y_not_running">Dịch vụ hỗ trợ tiếp cận của Mika đã được bật, nhưng Android chưa kết nối nó. Hãy tắt rồi bật lại Mika trong mục Hỗ trợ tiếp cận của cài đặt hệ thống. Nếu Android chặn, hãy cho phép cài đặt bị hạn chế trong thông tin ứng dụng của Mika trước.</string>
+    <string name="task_no_phone_helper">Điều khiển điện thoại chưa sẵn sàng. Hãy hoàn tất “Thiết lập điều khiển điện thoại” trong Phòng AI. Các tác vụ web và tệp không bị ảnh hưởng.</string>
+    <string name="task_no_a11y">Dịch vụ hỗ trợ tiếp cận của Phòng AI đang tắt. Hãy bật Phòng AI trong mục Hỗ trợ tiếp cận của cài đặt hệ thống.</string>
+    <string name="task_a11y_not_running">Dịch vụ hỗ trợ tiếp cận của Phòng AI đã được bật, nhưng Android chưa kết nối nó. Hãy tắt rồi bật lại Phòng AI trong mục Hỗ trợ tiếp cận của cài đặt hệ thống. Nếu Android chặn, hãy cho phép cài đặt bị hạn chế trong thông tin ứng dụng của Phòng AI trước.</string>
     <string name="task_error">Lỗi tác vụ: %1$s</string>
-    <string name="task_app_blocked">“%1$s” đang bị tắt, nên Mika không thể đọc hay thao tác nó. Hãy cho phép trong Cài đặt › Quyền truy cập ứng dụng rồi thử lại.</string>
+    <string name="task_app_blocked">“%1$s” đang bị tắt, nên Phòng AI không thể đọc hay thao tác nó. Hãy cho phép trong Cài đặt › Quyền truy cập ứng dụng rồi thử lại.</string>
     <string name="task_app_this_app">Ứng dụng này</string>
     <string name="task_app_access_unavailable">Không đọc được cài đặt quyền truy cập ứng dụng. Hãy đặt lại chúng trong Cài đặt › Quyền truy cập ứng dụng rồi thử lại.</string>
-    <string name="task_app_protected">Màn hình này cần bạn tự xử lý; Mika không thể tự động hóa nó.</string>
+    <string name="task_app_protected">Màn hình này cần bạn tự xử lý; Phòng AI không thể tự động hóa nó.</string>
     <string name="task_app_unverified">Không xác nhận được ứng dụng nào đang ở phía trước, nên không làm gì thêm. Hãy thử lại, hoặc mở ứng dụng đích trước.</string>
     <string name="task_condition_interrupted">Việc kiểm tra điều kiện đã bị gián đoạn</string>
     <string name="task_check_unfinished">Lần kiểm tra theo lịch chưa hoàn thành: %1$s</string>
     <string name="task_may_make_sound">Ứng dụng này có thể phát âm thanh</string>
-    <string name="task_notif_title">Mika: %1$s</string>
+    <string name="task_notif_title">Phòng AI: %1$s</string>
     <plurals name="task_active">
         <item quantity="other">%1$d tác vụ đang chạy</item>
     </plurals>
@@ -63,8 +63,8 @@
     <string name="task_not_done">Tác vụ chưa hoàn thành</string>
     <string name="task_stopped">Tác vụ đã dừng</string>
     <string name="task_stopped_body">Bạn đã dừng tác vụ này</string>
-    <string name="gate_user_on_page">Bạn đang dùng trang này, nên Mika đã tạm dừng</string>
-    <string name="task_no_phone_helper_usb">Trợ thủ điện thoại đã dừng (thường là sau khi điện thoại khởi động lại). Hãy mở Mika và chạy lại lệnh khởi động qua USB; bạn có thể sao chép lệnh đó trong “Thiết lập điều khiển điện thoại”. Các tác vụ web và tệp không bị ảnh hưởng.</string>
+    <string name="gate_user_on_page">Bạn đang dùng trang này, nên Phòng AI đã tạm dừng</string>
+    <string name="task_no_phone_helper_usb">Trợ thủ điện thoại đã dừng (thường là sau khi điện thoại khởi động lại). Hãy mở Phòng AI và chạy lại lệnh khởi động qua USB; bạn có thể sao chép lệnh đó trong “Thiết lập điều khiển điện thoại”. Các tác vụ web và tệp không bị ảnh hưởng.</string>
     <string name="drawer_screens">Màn hình chạy nền</string>
     <string name="screens_title">Màn hình chạy nền</string>
     <string name="screens_empty">Hiện không có tác vụ nào đang chạy.</string>

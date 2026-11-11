@@ -112,7 +112,7 @@ object CapsuleCopy {
         view.kind.needsYou -> tr(R.string.capsule_desc_needs, view.text)
         view.kind == CapsuleKind.Running -> tr(R.string.capsule_desc_running, view.text)
         view.kind == CapsuleKind.Held || view.kind == CapsuleKind.Cancelled -> tr(R.string.capsule_desc_other, view.text)
-        else -> "Mika ${view.text}"
+        else -> "Phòng AI ${view.text}"
     }
 }
 

@@ -15,8 +15,8 @@ Write in the user's language, plain text, at most five short lines; a short
 - for repeated actions on a list (sending, greeting, applying, submitting),
   use the latest <progress> for the confirmed count and boundary; also name
   items from the action record when available. Never count attempted or failed
-  actions as completed; lines marked 对外发出 are the ones actually sent or
-  submitted, lines marked 没成功 did not go through;
+  actions as completed; lines marked Đã gửi đi are the ones actually sent or
+  submitted, lines marked Không thành công did not go through;
 - what of the request was not done yet.
 
 Report only what the record shows; do not guess results, do not claim
@@ -24,7 +24,7 @@ anything was finished that the record does not show. Do not apologise, do not
 offer options and do not ask questions. The work has stopped and will not
 continue by itself.
 
-例:
-已经停下。停止前:
-- 打开了设置,看完了「网络和互联网」「蓝牙」两页:网络页有 WLAN、移动网络、热点,蓝牙页有配对新设备、已连接的设备。
-- 「显示」「声音」两页还没看。
+Example:
+Đã dừng. Trước khi dừng:
+- Đã mở Cài đặt, xem xong hai trang「Mạng và Internet」「Bluetooth」: trang mạng có WLAN, dữ liệu di động, điểm phát sóng; trang Bluetooth có ghép thiết bị mới và các thiết bị đã kết nối.
+- Hai trang「Màn hình」「Âm thanh」chưa xem.

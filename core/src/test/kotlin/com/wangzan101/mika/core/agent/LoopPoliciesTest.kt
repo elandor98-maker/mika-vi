@@ -187,10 +187,10 @@ class LoopPoliciesTest {
     private val fixed = RetryPolicy(jitter = { 1.0 })
 
     @Test fun retriesOnlyTransientErrors() {
-        assertEquals(1000L, fixed.delayFor(ModelError.Network(), 0))
-        assertEquals(1000L, fixed.delayFor(ModelError.Server(503), 0))
-        assertEquals(1000L, fixed.delayFor(ModelError.RateLimited(null), 0))
-        assertEquals(1000L, fixed.delayFor(ModelError.StreamCut(), 0))
+        assertEquals(2000L, fixed.delayFor(ModelError.Network(), 0))
+        assertEquals(2000L, fixed.delayFor(ModelError.Server(503), 0))
+        assertEquals(2000L, fixed.delayFor(ModelError.RateLimited(null), 0))
+        assertEquals(2000L, fixed.delayFor(ModelError.StreamCut(), 0))
         assertEquals("stream_cut", RetryPolicy.label(ModelError.StreamCut()))
         for (e in listOf(ModelError.Server(400), ModelError.Server(404), ModelError.Auth(), ModelError.QuotaExceeded(),
             ModelError.ModelNotFound(), ModelError.ContentRefused(), ModelError.BadResponse(), ModelError.ContextTooLong(), IllegalStateException())) {
@@ -200,18 +200,18 @@ class LoopPoliciesTest {
 
     @Test fun backoffDoublesUpToCapAndStopsAfterMaxRetries() {
         val p = RetryPolicy(maxRetries = 5, jitter = { 1.0 })
-        assertEquals(listOf(1000L, 2000L, 4000L, 8000L, 8000L), (0..4).map { p.delayFor(ModelError.Network(), it) })
+        assertEquals(listOf(2000L, 4000L, 8000L, 16000L, 32000L), (0..4).map { p.delayFor(ModelError.Network(), it) })
         assertNull(p.delayFor(ModelError.Network(), 5))
     }
 
     @Test fun jitterKeepsHalfTheWait() {
-        assertEquals(500L, RetryPolicy(jitter = { 0.0 }).delayFor(ModelError.Network(), 0))
-        assertEquals(750L, RetryPolicy(jitter = { 0.5 }).delayFor(ModelError.Network(), 0))
+        assertEquals(1000L, RetryPolicy(jitter = { 0.0 }).delayFor(ModelError.Network(), 0))
+        assertEquals(1500L, RetryPolicy(jitter = { 0.5 }).delayFor(ModelError.Network(), 0))
     }
 
     @Test fun taskWaitBudgetStopsRetrying() {
-        val p = RetryPolicy(jitter = { 1.0 }, taskWaitBudgetMs = 2500)
-        assertEquals(1000L, p.delayFor(ModelError.Network(), 0, waitedInTaskMs = 1500))
+        val p = RetryPolicy(jitter = { 1.0 }, taskWaitBudgetMs = 3500)
+        assertEquals(2000L, p.delayFor(ModelError.Network(), 0, waitedInTaskMs = 1500))
         assertNull(p.delayFor(ModelError.Network(), 0, waitedInTaskMs = 1600))
         assertNull(p.delayFor(ModelError.RateLimited(5000), 0))
         assertNull(RetryPolicy.NONE.delayFor(ModelError.Server(503), 0))
@@ -219,7 +219,7 @@ class LoopPoliciesTest {
 
     @Test fun retryAfterIsHonouredAndCapped() {
         assertEquals(5000L, fixed.delayFor(ModelError.RateLimited(5000), 0))
-        assertEquals(30_000L, fixed.delayFor(ModelError.RateLimited(600_000), 0))
-        assertNull(fixed.delayFor(ModelError.RateLimited(5000), 3))
+        assertEquals(120_000L, fixed.delayFor(ModelError.RateLimited(600_000), 0))
+        assertNull(fixed.delayFor(ModelError.RateLimited(5000), 8))
     }
 }

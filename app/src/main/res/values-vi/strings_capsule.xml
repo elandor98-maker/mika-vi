@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="card_approve_once">Chỉ đồng ý lần này</string>
-    <string name="card_see_process">Quay lại Mika để xem toàn bộ quá trình</string>
-    <string name="card_back_to_mika">Quay lại Mika</string>
+    <string name="card_see_process">Quay lại Phòng AI để xem toàn bộ quá trình</string>
+    <string name="card_back_to_mika">Quay lại Phòng AI</string>
     <string name="card_continue_last">Tiếp tục cuộc trò chuyện trước</string>
     <string name="card_screen">Màn hình nền, chạm để phóng to</string>
     <string name="card_screen_label">Màn hình nền</string>
     <string name="card_zoomed">Màn hình nền đã phóng to, chạm để đóng</string>
-    <string name="card_zoom_hint">Mika đang làm việc trong nền · chạm để đóng</string>
+    <string name="card_zoom_hint">Phòng AI đang làm việc trong nền · chạm để đóng</string>
     <string name="card_continuing">Tiếp tục “%1$s”</string>
     <string name="card_queued_ahead">Hãy xử lý yêu cầu tiếp quản phía trước trước, rồi tới cái này</string>
-    <string name="card_hint_answer">Trả lời Mika…</string>
+    <string name="card_hint_answer">Trả lời Phòng AI…</string>
     <string name="card_hint_continue">Tiếp tục trò chuyện…</string>
     <plurals name="capsule_behind">
         <item quantity="other">Sau cái này, còn %1$d mục nữa đang chờ bạn</item>
@@ -23,11 +23,11 @@
     <string name="capsule_stopped">Đã dừng</string>
     <string name="capsule_stop">Dừng việc này</string>
     <string name="capsule_expand">Mở rộng tác vụ này</string>
-    <string name="capsule_talk">Nói chuyện với Mika</string>
+    <string name="capsule_talk">Nói chuyện với Phòng AI</string>
     <string name="capsule_swap_side">Chuyển sang phía bên kia</string>
     <string name="capsule_desc_needs">%1$s, chạm để xử lý</string>
-    <string name="capsule_desc_running">Mika đang làm việc: %1$s, chạm để xem chi tiết</string>
-    <string name="capsule_desc_other">Mika: %1$s, chạm để xem chi tiết</string>
+    <string name="capsule_desc_running">Phòng AI đang làm việc: %1$s, chạm để xem chi tiết</string>
+    <string name="capsule_desc_other">Phòng AI: %1$s, chạm để xem chi tiết</string>
     <string name="capsule_then_tap_right">Chạm vào phía bên phải khi xong</string>
     <string name="capsule_need_of_total">%1$d mục cần bạn · tổng cộng %2$d</string>
     <string name="capsule_of_total">%1$s · tổng cộng %2$d</string>
@@ -36,7 +36,7 @@
     <string name="capsule_needs_you">Cần bạn: %1$s</string>
     <string name="capsule_handle_it">xem thử</string>
     <string name="capsule_needs_ok">Cần bạn đồng ý: %1$s</string>
-    <string name="capsule_asks">Mika hỏi: %1$s</string>
+    <string name="capsule_asks">Phòng AI hỏi: %1$s</string>
     <string name="capsule_hold_why">Tạm giữ: %1$s</string>
     <string name="capsule_you_handle">Tới lượt bạn</string>
     <string name="capsule_thinking">Đang nghĩ bước tiếp theo</string>

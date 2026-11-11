@@ -1938,10 +1938,10 @@ class AndroidScreen(
         return when {
             o.closed -> "The user closed the system's question on their screen without picking, so nothing was opened. Decide what to do next; do not simply repeat the action."
             o.byUser && !o.pulledBack -> "$name needed the user; they handled it on their own screen and tapped continue, and it has closed. Observe before acting."
-            o.byUser -> "$name needed the user; they handled it on their own screen and tapped continue. It is now in front on Mika's screen. Observe before acting."
+            o.byUser -> "$name needed the user; they handled it on their own screen and tapped continue. It is now in front on Phòng AI's screen. Observe before acting."
             o.needsUser && o.onUserScreen -> "It was $name: a popup on the user's screen that needs them (a sign-in, verification or confirmation step). " +
                 "It was left there on purpose; do not repeat the action. Call hand_to_user so they can finish it, then observe before acting."
-            o.pulledBack -> "It was $name, now in front on Mika's screen.$copy Observe before acting."
+            o.pulledBack -> "It was $name, now in front on Phòng AI's screen.$copy Observe before acting."
             else -> "It was $name, which the user is using on their own screen, so it was left there. " +
                 "Do not repeat the previous action: call hand_to_user with reason other so the user can do that step there, or wait and try again later."
         }

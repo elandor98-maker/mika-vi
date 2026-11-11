@@ -10,7 +10,7 @@
     <string name="memory_procedures">Cách làm</string>
     <string name="memory_fact">Thông tin</string>
     <string name="search">Tìm kiếm</string>
-    <string name="memory_unreadable">Bộ nhớ trước đây không đọc được; nó đã được để sang một bên và Mika bắt đầu mới.</string>
+    <string name="memory_unreadable">Bộ nhớ trước đây không đọc được; nó đã được để sang một bên và Phòng AI bắt đầu mới.</string>
     <string name="memory_pending_n">Chờ duyệt %1$d</string>
     <string name="memory_pending">Chờ duyệt</string>
     <string name="memory_memory">Bộ nhớ</string>
@@ -22,11 +22,11 @@
     <string name="memory_pending_title">Bộ nhớ đang chờ bạn đồng ý</string>
     <string name="memory_switches">Công tắc</string>
     <string name="memory_use">Sử dụng bộ nhớ</string>
-    <string name="memory_use_sub">Khi tắt, Mika không đọc cũng không lưu bộ nhớ</string>
+    <string name="memory_use_sub">Khi tắt, Phòng AI không đọc cũng không lưu bộ nhớ</string>
     <string name="memory_auto">Ghi nhớ những gì tôi nói</string>
     <string name="memory_auto_sub">Được sắp xếp từ chính lời của bạn sau mỗi tác vụ</string>
     <string name="memory_learn">Học từ các tác vụ trước (kỹ năng và ghi chú ứng dụng)</string>
-    <string name="memory_learn_sub">Những gì Mika học được chỉ dùng sau khi bạn chấp nhận</string>
+    <string name="memory_learn_sub">Những gì Phòng AI học được chỉ dùng sau khi bạn chấp nhận</string>
     <string name="memory_clear_sub">Xóa toàn bộ bộ nhớ và kỹ năng đã học</string>
     <string name="edit_it">Sửa</string>
     <string name="unpin">Bỏ ghim</string>
@@ -51,7 +51,7 @@
     <string name="skill_missing_description">Cần một dòng mô tả</string>
     <string name="skill_missing_section">Cần năm phần: phần mở đầu, các bước, lỗi thường gặp, tiêu chí hoàn thành, và khi nào nên dừng để bàn giao</string>
     <string name="skill_too_long">Kỹ năng quá dài; tối đa 4000 ký tự</string>
-    <string name="skill_unknown_tool">Nó nhắc tới các công cụ Mika không có</string>
+    <string name="skill_unknown_tool">Nó nhắc tới các công cụ Phòng AI không có</string>
     <string name="memory_manual">Do bạn viết</string>
     <string name="date_pattern_md">d MMM</string>
     <string name="memory_said_via">Bạn đã nói vào %1$s qua %2$s: “%3$s”</string>

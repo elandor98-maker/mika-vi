@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="teach_title">Dạy Mika</string>
-    <string name="teach_menu">Dạy Mika</string>
+    <string name="teach_title">Dạy Phòng AI</string>
+    <string name="teach_menu">Dạy Phòng AI</string>
     <string name="teach_goal_label">Mục tiêu</string>
-    <string name="teach_goal_hint">Mika nên học điều gì? Một câu thôi.</string>
+    <string name="teach_goal_hint">Phòng AI nên học điều gì? Một câu thôi.</string>
     <string name="teach_disclosure">Các bước chỉ ở trên điện thoại này, và chỉ sau khi bạn chạm Bắt đầu làm mẫu. Nếu đã thiết lập mô hình, việc tạo kỹ năng sẽ gửi một bản tóm tắt đã lược bỏ thông tin nhạy cảm về mục tiêu và các bước cho mô hình đó. Mật khẩu, mã xác minh và thông tin thanh toán sẽ bị loại ra. Nếu chưa thiết lập mô hình, bản nháp được viết ngay trên điện thoại này và không có gì được tải lên. Bản nháp không được dùng cho đến khi bạn chấp nhận nó, và nó chưa được chạy thử.</string>
     <string name="teach_continue">Tiếp tục</string>
-    <string name="teach_ready_body">Mika sẽ quan sát và không điều khiển điện thoại. Bạn có thể tạm dừng, kết thúc hoặc hủy bỏ. Không có gì được ghi lại cho đến khi bạn chạm Bắt đầu làm mẫu.</string>
+    <string name="teach_ready_body">Phòng AI sẽ quan sát và không điều khiển điện thoại. Bạn có thể tạm dừng, kết thúc hoặc hủy bỏ. Không có gì được ghi lại cho đến khi bạn chạm Bắt đầu làm mẫu.</string>
     <string name="teach_start">Bắt đầu làm mẫu</string>
     <string name="teach_learning">Đang học</string>
     <string name="teach_paused">Đã tạm dừng</string>
@@ -21,7 +21,7 @@
     <string name="teach_remove">Xóa</string>
     <string name="teach_generate">Tạo bản nháp kỹ năng</string>
     <string name="teach_busy">Đang có tác vụ chạy. Hãy đợi nó kết thúc trước khi dạy.</string>
-    <string name="teach_need_a11y">Hãy bật hỗ trợ tiếp cận trước khi làm mẫu. Không có nó, Mika không thấy được các lần chạm.</string>
+    <string name="teach_need_a11y">Hãy bật hỗ trợ tiếp cận trước khi làm mẫu. Không có nó, Phòng AI không thấy được các lần chạm.</string>
     <string name="teach_interrupted">Buổi làm mẫu đã dừng vì ứng dụng khởi động lại hoặc hỗ trợ tiếp cận bị tắt. Không có gì được ghi lại cho đến khi bạn chạm Tiếp tục.</string>
     <string name="teach_need_goal">Hãy nhập mục tiêu trước.</string>
     <string name="teach_secret_goal">Mục tiêu đó trông giống mật khẩu hoặc mã, nên đã không được lưu.</string>
@@ -29,13 +29,13 @@
     <string name="teach_draft_ready">Một bản nháp đang chờ trong Ký ức và kỹ năng. Nó không được dùng cho đến khi bạn chấp nhận, và chưa được chạy thử.</string>
     <string name="teach_open_drafts">Xem các bản nháp</string>
     <string name="teach_no_steps">Không có bước nào được giữ lại.</string>
-    <string name="teach_blocked_task">Mika đang học từ bạn, nên tác vụ này đã không được bắt đầu.</string>
+    <string name="teach_blocked_task">Phòng AI đang học từ bạn, nên tác vụ này đã không được bắt đầu.</string>
     <string name="teach_channel">Đang dạy</string>
     <string name="teach_sensitive_note">Nội dung nhạy cảm đã bị loại ra.</string>
     <string name="teach_insufficient_note">Không đủ thông tin giao diện. Đây không phải là thao tác theo tọa độ.</string>
-    <string name="teach_notification">Mika không điều khiển điện thoại.</string>
+    <string name="teach_notification">Phòng AI không điều khiển điện thoại.</string>
     <string name="teach_no_visible">Không hiển thị được thanh Học, nên việc ghi đã không bắt đầu. Không cần quyền thông báo. Lớp phủ hỗ trợ tiếp cận phải hiển thị, với nút Tạm dừng và Kết thúc trên đó.</string>
     <string name="teach_watch_lost">Thanh Học đã biến mất, nên buổi làm mẫu đã dừng. Không còn gì đang được ghi nữa.</string>
-    <string name="teach_shelf_expand">Hiện Dạy Mika</string>
-    <string name="teach_shelf_collapse">Ẩn Dạy Mika</string>
+    <string name="teach_shelf_expand">Hiện Dạy Phòng AI</string>
+    <string name="teach_shelf_collapse">Ẩn Dạy Phòng AI</string>
 </resources>
