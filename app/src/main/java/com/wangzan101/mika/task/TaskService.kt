@@ -901,6 +901,18 @@ class TaskService : Service() {
 
     private fun openApp(threadId: String? = null) = openApp(this, threadId)
 
+    /**
+     * Người dùng vuốt app khỏi danh sách gần đây = «thoát app» (Phòng AI v3.4, chế độ đi ngân hàng):
+     * tiện tay tắt luôn Tùy chọn nhà phát triển + Trợ năng của app để vào ngân hàng không bị chặn;
+     * mở lại app thì BankMode tự bật lại. Chỉ là best-effort (tiến trình có thể bị hệ thống dọn ngay):
+     * lệnh chạy qua trợ lý shell thường trú ở tiến trình khác nên thường kịp; đường chắc chắn là nút bấm.
+     * Không stopSelf: vòng đời dịch vụ giữ nguyên như cũ.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        runCatching { (application as? com.wangzan101.mika.MikaApp)?.phone?.bankMode?.turnOffInBackground() }
+    }
+
     override fun onDestroy() {
         scope.cancel()
         // 服务没了就撑不住进程:留着的那一页如实关掉,对话里记下

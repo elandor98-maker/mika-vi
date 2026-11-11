@@ -1,6 +1,7 @@
 package com.wangzan101.mika.cap.phone
 
 import android.content.Context
+import com.wangzan101.mika.cap.phone.setup.BankMode
 import com.wangzan101.mika.cap.phone.setup.BuiltinShellManager
 import com.wangzan101.mika.cap.phone.setup.BuiltinShellRecovery
 import com.wangzan101.mika.cap.phone.setup.PairingCoordinator
@@ -42,6 +43,9 @@ class PhoneServices(context: Context) {
 
     /** 任务要用手机、助手却没在运行时的提示。 */
     val setupPrompt = PhoneSetupPrompt(app)
+
+    /** «Đi ngân hàng» (v3.4): tắt/bật lại Tùy chọn nhà phát triển + Trợ năng của chính app cho khỏi bị app ngân hàng chặn. */
+    val bankMode: BankMode by lazy { BankMode(app, shellManager, shellControl) }
 
     /** 给出进程里那一份的 Application。 */
     interface Owner {

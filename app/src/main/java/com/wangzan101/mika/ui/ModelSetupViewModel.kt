@@ -19,6 +19,7 @@ import com.wangzan101.mika.settings.ProviderConnection
 import com.wangzan101.mika.settings.ProviderPreset
 import com.wangzan101.mika.settings.ProviderPresets
 import com.wangzan101.mika.settings.ProbeResult
+import com.wangzan101.mika.settings.KeyRowUi
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.ModelContextSettings
 import com.wangzan101.mika.settings.PasteKey
@@ -202,6 +203,8 @@ data class ModelSetupUi(
     val configs: List<ProviderConfig> = emptyList(),
     val roles: RoleChoices = RoleChoices(),
     val keyed: Set<String> = emptySet(),
+    /** Phòng AI v3.4: key đã lưu của từng hãng (số thứ tự, đuôi đã che, chip trạng thái) để liệt kê trong trang chi tiết. */
+    val keyRows: Map<String, List<KeyRowUi>> = emptyMap(),
     val listing: Map<String, ListState> = emptyMap(),
     /** ChatGPT 服务商的账号;没有这家时为 null。 */
     val chatGptAccount: ChatGptAccount? = null,
@@ -338,7 +341,10 @@ class ModelSetupViewModel(
 
     init {
         // 别处(开发者选项等)改了存储时跟着更新
-        scope.launch { merge(store.providers, store.configs, store.roles).collect { sync() } }
+        scope.launch {
+            merge(store.providers, store.configs, store.roles, store.keyStatuses, store.servingMain, store.providerKeyRevisions)
+                .collect { sync() }
+        }
         speech?.let { s -> scope.launch { s.choice.collect { sync() } } }
         // 登录在别处结束(通知上取消了)或界面重建前就开始了:跟着它的进度
         scope.launch {
@@ -397,6 +403,7 @@ class ModelSetupViewModel(
         return ui.copy(
             providers = providers, configs = store.configs.value, roles = store.roles.value,
             keyed = providers.filter { store.hasKey(it.id) }.map { it.id }.toSet(),
+            keyRows = providers.associate { it.id to store.keyRows(it.id) },
             chatGptAccount = store.chatGptProvider()?.let { p ->
                 store.chatGptSession(p.id).let { ChatGptAccount(it?.email.orEmpty(), it?.signedIn == true) }
             },

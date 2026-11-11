@@ -41,8 +41,11 @@ import com.wangzan101.mika.core.usage.metered
 import com.wangzan101.mika.local.LocalLlamaModel
 import com.wangzan101.mika.local.LocalModelStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -318,6 +321,7 @@ class ProviderStore(
     private val accountTokens = mutableMapOf<String, AccountTokens>()
     private val configFile = File(dir, CONFIG_FILE)
     private val keyFile = File(dir, KEY_FILE)
+    private val keyStatusFile = File(dir, KEY_STATUS_FILE)
     private val chatGptHostFile = File(dir, CHATGPT_HOST_FILE)
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -343,9 +347,26 @@ class ProviderStore(
      */
     private var keys: Map<String, List<String>> = emptyMap()
 
+    private val _keyStatuses = MutableStateFlow<Map<String, List<KeyLinkStatus>>>(emptyMap())
+    /**
+     * Trạng thái từng key đã ghi nhận lúc chạy (Phòng AI v3.4): hãng → danh sách theo số thứ tự key —
+     * lần dùng gần nhất, lỗi gần nhất, bị bỏ qua đến khi nào. Lưu xuống đĩa (file riêng cạnh file key)
+     * để trang Cài đặt hiện chip trạng thái cả sau khi app khởi động lại. Chỉ ghi SỐ THỨ TỰ, không giá trị key.
+     */
+    val keyStatuses: StateFlow<Map<String, List<KeyLinkStatus>>> = _keyStatuses.asStateFlow()
+
+    private val _servingMain = MutableStateFlow<ServingLink?>(null)
+    /** Mắt xích đang chạy cho mô hình chính (chỉ trong bộ nhớ): dòng «Đang chạy: …» trên màn hình trò chuyện đọc ở đây. */
+    val servingMain: StateFlow<ServingLink?> = _servingMain.asStateFlow()
+
+    private val _failoverNotices = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    /** Câu thông báo mỗi khi chuỗi dự phòng của mô hình chính chuyển key vì hết lượt / key chết (xem [failoverNoticeText]). */
+    val failoverNotices: SharedFlow<String> = _failoverNotices.asSharedFlow()
+
     init {
         dir.mkdirs()
         load()
+        loadKeyStatuses()
     }
 
     fun list(): List<ProviderConfig> = _configs.value
@@ -384,6 +405,102 @@ class ProviderStore(
 
     /** 服务商存了几把 Key。 */
     fun keyCount(providerId: String): Int = synchronized(this) { keys[providerId]?.size ?: 0 }
+
+    /**
+     * Các key đã lưu của một hãng, theo đúng thứ tự xoay vòng, để trang chi tiết nhà cung cấp liệt kê:
+     * số thứ tự, đuôi đã che, chip trạng thái. Hãng đăng nhập bằng tài khoản (ChatGPT/xAI/OpenRouter)
+     * không có danh sách này — "key" của chúng là phiên đăng nhập, trang chi tiết đã có phần tài khoản riêng.
+     */
+    fun keyRows(providerId: String): List<KeyRowUi> {
+        val p = provider(providerId) ?: return emptyList()
+        if (p.kind == ProviderConfig.Kind.ChatGpt || p.kind == ProviderConfig.Kind.Xai || p.signIn != null) return emptyList()
+        val all = providerKeys(providerId).filter { it.isNotBlank() }
+        val statuses = _keyStatuses.value[providerId].orEmpty()
+        val serving = _servingMain.value
+        val now = System.currentTimeMillis()
+        return all.mapIndexed { i, key ->
+            val isServing = serving != null && serving.providerId == providerId && serving.keyIndex == i + 1
+            KeyRowUi(i + 1, keyTail(key), keyChipUi(statuses.getOrNull(i), isServing, now))
+        }
+    }
+
+    /** Đọc trạng thái key đã lưu; file hỏng/thiếu thì bỏ qua. Phần vượt quá số key hiện còn (key đã thay/xoá) bị cắt. */
+    private fun loadKeyStatuses() {
+        if (!keyStatusFile.isFile) return
+        runCatching {
+            val root = json.parseToJsonElement(keyStatusFile.readText()).jsonObject
+            _keyStatuses.value = root.mapValues { (pid, v) ->
+                v.jsonArray.map { e ->
+                    val o = e.jsonObject
+                    KeyLinkStatus(
+                        lastUsedAtMs = (o["u"] as? JsonPrimitive)?.longOrNull ?: 0L,
+                        lastErrorKind = (o["e"] as? JsonPrimitive)?.content,
+                        lastErrorAtMs = (o["t"] as? JsonPrimitive)?.longOrNull ?: 0L,
+                        cooldownUntilMs = (o["c"] as? JsonPrimitive)?.longOrNull ?: 0L,
+                    )
+                }.take(keys[pid]?.size ?: 0)
+            }.filterValues { it.isNotEmpty() }
+        }
+    }
+
+    private fun saveKeyStatuses() {
+        val text = buildJsonObject {
+            _keyStatuses.value.forEach { (pid, list) ->
+                putJsonArray(pid) {
+                    list.forEach { s ->
+                        addJsonObject {
+                            if (s.lastUsedAtMs > 0) put("u", s.lastUsedAtMs)
+                            s.lastErrorKind?.let { put("e", it) }
+                            if (s.lastErrorAtMs > 0) put("t", s.lastErrorAtMs)
+                            if (s.cooldownUntilMs > 0) put("c", s.cooldownUntilMs)
+                        }
+                    }
+                }
+            }
+        }.toString()
+        runCatching { writeAtomically(keyStatusFile, text) }
+    }
+
+    /** Cập nhật trạng thái của key số [index] (1-based) của một hãng rồi lưu xuống đĩa; index không hợp lệ thì bỏ qua. */
+    private fun updateKeyStatus(providerId: String, index: Int, change: (KeyLinkStatus) -> KeyLinkStatus) {
+        if (index <= 0) return
+        synchronized(this) {
+            val count = keys[providerId]?.size ?: 0
+            if (index > count) return
+            val current = _keyStatuses.value[providerId].orEmpty()
+            val size = maxOf(current.size, index)
+            val next = (0 until size).map { i -> current.getOrElse(i) { KeyLinkStatus() } }
+                .toMutableList().also { it[index - 1] = change(it[index - 1]) }
+            _keyStatuses.value = _keyStatuses.value + (providerId to next)
+            saveKeyStatuses()
+        }
+    }
+
+    /** [FailoverChatModel] báo một mắt xích bắt đầu được gọi: ghi lần dùng; là mô hình chính thì cập nhật dòng «Đang chạy». */
+    private fun noteKeyAttempt(link: ServingLink, role: ModelRole) {
+        if (role == ModelRole.Main) _servingMain.value = link
+        updateKeyStatus(link.providerId, link.keyIndex) { it.copy(lastUsedAtMs = System.currentTimeMillis()) }
+    }
+
+    /** Mắt xích vừa chạy ngon: xoá lỗi/cooldown đã ghi cho key đó (nó đã khoẻ lại). */
+    private fun noteKeyServed(link: ServingLink) {
+        val cur = _keyStatuses.value[link.providerId]?.getOrNull(link.keyIndex - 1) ?: return
+        if (cur.lastErrorKind == null && cur.cooldownUntilMs == 0L) return
+        updateKeyStatus(link.providerId, link.keyIndex) { it.copy(lastErrorKind = null, cooldownUntilMs = 0L) }
+    }
+
+    /** Mắt xích vừa sập: ghi loại lỗi + thời điểm hết bị bỏ qua, để Cài đặt hiện chip «Hết lượt» / «Lỗi xác thực». */
+    private fun noteKeyFailed(link: ServingLink, error: ModelError, cooldownUntilMs: Long) {
+        val now = System.currentTimeMillis()
+        updateKeyStatus(link.providerId, link.keyIndex) {
+            it.copy(lastErrorKind = keyErrorKind(error), lastErrorAtMs = now, cooldownUntilMs = cooldownUntilMs)
+        }
+    }
+
+    /** Chuỗi dự phòng của mô hình chính vừa chuyển key vì hết lượt / key chết: phát câu thông báo cho màn hình trò chuyện. */
+    private fun noteKeySwitch(from: ServingLink, to: ServingLink, error: ModelError) {
+        failoverNoticeText(from, to, error)?.let { _failoverNotices.tryEmit(it) }
+    }
 
     /**
      * 给服务商再加一把 Key(ô «dán key» ở trang Mô hình, xem com.wangzan101.mika.settings.PasteKey):
@@ -508,6 +625,10 @@ class ProviderStore(
         prune()
         if (providerId in keys) setKey(providerId, "")
         _providerKeyRevisions.value -= providerId
+        if (providerId in _keyStatuses.value) {
+            _keyStatuses.value = _keyStatuses.value - providerId
+            saveKeyStatuses()
+        }
         writeConfig()
     }
 
@@ -648,27 +769,51 @@ class ProviderStore(
     fun modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? {
         val primary = configFor(role) ?: return null
         // AI nội bộ làm chính = lựa chọn offline có chủ đích: không tự ý gọi thêm nhà cloud nào khác.
-        if (primary.kind == ProviderConfig.Kind.Local) return buildMetered(primary, role, session)
+        if (primary.kind == ProviderConfig.Kind.Local) {
+            if (role == ModelRole.Main) {
+                _servingMain.value = ServingLink(
+                    primary.providerId, provider(primary.providerId)?.name ?: primary.name, 0, 0, primary.model,
+                )
+            }
+            return buildMetered(primary, role, session)
+        }
         val chain = failoverChain(primary)
         // Mỗi nhà có thể có NHIỀU key (nhiều tài khoản của người dùng): chuỗi được trải ra
         // một mắt xích cho mỗi key, key của nhà trước nằm trước key của nhà sau. Nhờ vậy khi một key
         // hết hạn mức/bị giới hạn, FailoverChatModel tự chuyển sang KEY KẾ TIẾP CỦA CÙNG NHÀ trước,
         // hết key của nhà đó mới sang nhà kế tiếp; thời gian "bỏ qua" (cooldown) của nó tính theo từng
         // mắt xích = từng key, và nhà chỉ có 1 key thì hành vi y hệt như trước.
-        val links = chain.flatMap { keyLinks(it, role, session) }
-        if (links.size == 1) return links[0]
-        return FailoverChatModel(links)
+        val built = chain.flatMap { keyLinks(it, role, session) }
+        // Kể cả chuỗi chỉ có MỘT mắt xích cũng bọc FailoverChatModel (nó ủy thác thẳng cho mắt xích đó,
+        // hành vi gọi y hệt): nhờ vậy trạng thái key — đang chạy key nào, key nào vừa sập — luôn được
+        // ghi nhận (v3.4), thay vì chỉ ghi khi có từ hai mắt xích trở lên.
+        return FailoverChatModel(
+            built.map { it.first },
+            linkIds = built.map { it.second },
+            onAttempt = { noteKeyAttempt(it, role) },
+            onServed = ::noteKeyServed,
+            onFailed = ::noteKeyFailed,
+            onSwitch = if (role == ModelRole.Main) ::noteKeySwitch else { _, _, _ -> },
+        )
     }
 
-    /** Các mắt xích của một cấu hình trong chuỗi dự phòng: mỗi key một mắt xích (theo thứ tự đã lưu). */
-    private fun keyLinks(cfg: ProviderConfig, role: ModelRole, session: ModelSession): List<ChatModel> {
+    /** Các mắt xích của một cấu hình trong chuỗi dự phòng: mỗi key một mắt xích (theo thứ tự đã lưu), kèm danh tính mắt xích. */
+    private fun keyLinks(cfg: ProviderConfig, role: ModelRole, session: ModelSession): List<Pair<ChatModel, ServingLink>> {
+        val providerName = provider(cfg.providerId)?.name ?: cfg.name
         // Hai nhà đăng nhập bằng tài khoản: thứ lưu trong "key" là phiên đăng nhập duy nhất, không có nhiều key.
         if (cfg.kind == ProviderConfig.Kind.ChatGpt || cfg.kind == ProviderConfig.Kind.Xai) {
-            return listOf(buildMetered(cfg, role, session))
+            return listOf(buildMetered(cfg, role, session) to ServingLink(cfg.providerId, providerName, 1, 1, cfg.model))
         }
         val all = providerKeys(cfg.providerId).filter { it.isNotBlank() }
-        if (all.size <= 1) return listOf(buildMetered(cfg, role, session))
-        return all.map { buildMetered(cfg, role, session, keyOverride = it) }
+        if (all.size <= 1) {
+            return listOf(
+                buildMetered(cfg, role, session) to
+                    ServingLink(cfg.providerId, providerName, if (all.isEmpty()) 0 else 1, all.size, cfg.model),
+            )
+        }
+        return all.mapIndexed { i, key ->
+            buildMetered(cfg, role, session, keyOverride = key) to ServingLink(cfg.providerId, providerName, i + 1, all.size, cfg.model)
+        }
     }
 
     /**
@@ -980,8 +1125,15 @@ class ProviderStore(
     }
 
     /** 换成一把 Key(替换整列);空串表示把这一家的 Key 全清掉。「再加一把」走 [appendProviderKey]。 */
-    private fun setKey(providerId: String, apiKey: String) =
+    private fun setKey(providerId: String, apiKey: String) {
+        // Thay toàn bộ key = các key cũ không còn nữa: trạng thái đã ghi của chúng cũng xoá,
+        // kẻo chip «Hết lượt»/«Lỗi xác thực» của key cũ dính sang key mới. (Thêm key đi đường setKeys, không qua đây.)
+        if (providerId in _keyStatuses.value) {
+            _keyStatuses.value = _keyStatuses.value - providerId
+            saveKeyStatuses()
+        }
         setKeys(providerId, if (apiKey.isEmpty()) emptyList() else listOf(apiKey))
+    }
 
     private fun setKeys(providerId: String, plainKeys: List<String>) {
         keys = if (plainKeys.isEmpty()) keys - providerId
@@ -1317,6 +1469,7 @@ class ProviderStore(
     companion object {
         private const val CONFIG_FILE = "providers.json"
         private const val KEY_FILE = "provider-keys.json"
+        private const val KEY_STATUS_FILE = "provider-key-status.json"
         private const val CHATGPT_HOST_FILE = "chatgpt-host.json"
 
         /** 各家预设沿用的旧上下文默认值;预设改了默认后,存着这个值的配置由 [repairStaleContextDefaults] 跟上去。 */

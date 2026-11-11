@@ -22,6 +22,20 @@ import com.wangzan101.mika.core.model.ToolSpec
 class FailoverChatModel(
     private val links: List<ChatModel>,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
+    /**
+     * Danh tính từng mắt xích (hãng + số thứ tự key, xem [ServingLink]) để báo trạng thái key (Phòng AI v3.4);
+     * không truyền thì không báo gì, hành vi y như cũ. Các [onAttempt]/[onServed]/[onFailed]/[onSwitch]
+     * chỉ là chỗ BÁO sự kiện ra ngoài (ProviderStore ghi lại, hiện lên màn hình); logic chuyển nhà không đổi.
+     */
+    private val linkIds: List<ServingLink> = emptyList(),
+    /** Một mắt xích bắt đầu được gọi dùng. */
+    private val onAttempt: (ServingLink) -> Unit = {},
+    /** Một mắt xích vừa chạy ngon một lần gọi. */
+    private val onServed: (ServingLink) -> Unit = {},
+    /** Một mắt xích vừa sập vì lỗi đáng chuyển nhà; kèm thời điểm nó hết bị bỏ qua (cooldown). */
+    private val onFailed: (ServingLink, ModelError, Long) -> Unit = { _, _, _ -> },
+    /** Vừa chuyển từ một mắt xích sang mắt xích KHÁC vì lỗi hết lượt / key chết; lần chọn đầu tiên của một lượt không tính. */
+    private val onSwitch: (ServingLink, ServingLink, ModelError) -> Unit = { _, _, _ -> },
 ) : StreamingChatModel {
     init {
         require(links.isNotEmpty()) { "Chuỗi dự phòng cần ít nhất một mô hình" }
@@ -32,15 +46,22 @@ class FailoverChatModel(
 
     private val deadUntilMs = LongArray(links.size)
 
+    /** Mắt xích vừa sập vì lỗi đáng thông báo (hết lượt / key chết) và lỗi đó; chờ mắt xích khác chạy ngon thì báo [onSwitch]. */
+    private var pendingSwitchFrom = -1
+    private var pendingSwitchError: ModelError? = null
+
     override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
         var last: ModelError? = null
         for ((i, link) in candidates()) {
+            linkIds.getOrNull(i)?.let(onAttempt)
             try {
-                return link.complete(system, messages, tools)
+                val reply = link.complete(system, messages, tools)
+                onServedLink(i)
+                return reply
             } catch (e: ModelError) {
                 if (!e.isFailoverWorthy()) throw e
                 last = e
-                markDead(i, e)
+                onFailedLink(i, e)
             }
         }
         throw last ?: ModelError.BadResponse("Tất cả các nhà cung cấp đều đang không dùng được")
@@ -52,8 +73,9 @@ class FailoverChatModel(
         var last: ModelError? = null
         for ((i, link) in candidates()) {
             var emitted = false
+            linkIds.getOrNull(i)?.let(onAttempt)
             try {
-                return if (link is StreamingChatModel) {
+                val reply = if (link is StreamingChatModel) {
                     link.completeStreaming(system, messages, tools) { text ->
                         emitted = true
                         onText(text)
@@ -67,13 +89,40 @@ class FailoverChatModel(
                         }
                     reply
                 }
+                onServedLink(i)
+                return reply
             } catch (e: ModelError) {
                 if (emitted || !e.isFailoverWorthy()) throw e
                 last = e
-                markDead(i, e)
+                onFailedLink(i, e)
             }
         }
         throw last ?: ModelError.BadResponse("Tất cả các nhà cung cấp đều đang không dùng được")
+    }
+
+    /** Mắt xích [i] vừa chạy ngon: báo [onServed], và nếu trước đó có mắt xích KHÁC sập vì hết lượt / key chết thì báo [onSwitch]. */
+    private fun onServedLink(i: Int) {
+        linkIds.getOrNull(i)?.let(onServed)
+        val from = pendingSwitchFrom
+        val error = pendingSwitchError
+        pendingSwitchFrom = -1
+        pendingSwitchError = null
+        if (from < 0 || from == i || error == null) return
+        val f = linkIds.getOrNull(from) ?: return
+        val t = linkIds.getOrNull(i) ?: return
+        onSwitch(f, t, error)
+    }
+
+    /** Mắt xích [i] vừa sập: đánh dấu bỏ qua một lúc, báo [onFailed]; lỗi thuộc nhóm hết lượt / key chết thì nhớ lại chờ báo chuyển nhà. */
+    private fun onFailedLink(i: Int, e: ModelError) {
+        val until = markDead(i, e)
+        linkIds.getOrNull(i)?.let { onFailed(it, e, until) }
+        when (keyErrorKind(e)) {
+            "RateLimited", "QuotaExceeded", "DailyBudgetExceeded", "ChatGptLimitReached", "Auth", "SignInExpired" -> {
+                pendingSwitchFrom = i
+                pendingSwitchError = e
+            }
+        }
     }
 
     /** Các mắt xích chưa bị đánh dấu sập; nếu tất cả đều đang bị bỏ qua thì thử lại tất cả (thà thử nhà "sập" còn hơn bó tay). */
@@ -83,7 +132,8 @@ class FailoverChatModel(
         return alive.ifEmpty { links.withIndex().toList() }
     }
 
-    private fun markDead(index: Int, e: ModelError) {
+    /** Đánh dấu mắt xích [index] là "sập" một lúc theo loại lỗi; trả về thời điểm nó được thử lại. */
+    private fun markDead(index: Int, e: ModelError): Long {
         val ms = when (e) {
             is ModelError.RateLimited -> e.retryAfterMs ?: 60_000L
             is ModelError.QuotaExceeded, is ModelError.DailyBudgetExceeded, is ModelError.ChatGptLimitReached,
@@ -91,7 +141,9 @@ class FailoverChatModel(
             is ModelError.ToolsUnsupported, is ModelError.ReasoningEffortRejected, is ModelError.ContextTooLong -> 600_000L
             else -> 30_000L // Server, Network, StreamCut và các lỗi hạ tầng khác: thử lại sau nửa phút
         }
-        deadUntilMs[index] = nowMs() + ms
+        val until = nowMs() + ms
+        deadUntilMs[index] = until
+        return until
     }
 }
 

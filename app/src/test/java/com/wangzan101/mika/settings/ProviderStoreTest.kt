@@ -15,6 +15,8 @@ import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.model.Usage
 import com.wangzan101.mika.core.usage.UsagePurpose
 import com.wangzan101.mika.core.usage.UsageSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -1142,6 +1144,179 @@ class ProviderStoreTest {
         // Key 1 hết hạn mức → tự chuyển key 2 của CÙNG nhà, không cần nhà khác
         assertEquals(listOf("k1", "k2"), called)
         assertEquals(Usage(3, 2), reply.usage)
+    }
+
+    // ---------- Trạng thái key (v3.4: hiện hãng + key đang chạy, chip từng key, thông báo chuyển key) ----------
+
+    @Test fun servingLinkTextsAlwaysCarryProviderAndKeyOrdinal() {
+        val link = ServingLink("p1", "Gemini", 3, 10, "gemini-3.8-flash")
+        assertEquals("Gemini · key 3/10 · gemini-3.8-flash", link.statusText())
+        assertEquals("Gemini · key 3/10", link.shortText())
+        assertEquals("Gemini key 3", link.fromText())
+        // Mắt xích không dùng key (AI nội bộ): chỉ hãng + model
+        assertEquals("AI nội bộ · m.gguf", ServingLink("p2", "AI nội bộ", 0, 0, "m.gguf").statusText())
+    }
+
+    @Test fun failoverNoticeNamesProviderAndKeyOnBothSides() {
+        val gemini2 = ServingLink("g", "Gemini", 2, 10, "gemini-3.8-flash")
+        val groq1 = ServingLink("q", "Groq", 1, 9, "openai/gpt-oss-120b")
+        assertEquals(
+            "Gemini key 2 hết lượt → đã chuyển sang Groq · key 1/9",
+            failoverNoticeText(gemini2, groq1, ModelError.RateLimited(null)),
+        )
+        assertEquals(
+            "Gemini key 2 hết lượt → đã chuyển sang Groq · key 1/9",
+            failoverNoticeText(gemini2, groq1, ModelError.QuotaExceeded()),
+        )
+        assertEquals(
+            "Gemini key 2 lỗi xác thực (key chết) → đã bỏ qua, chuyển sang Groq · key 1/9",
+            failoverNoticeText(gemini2, groq1, ModelError.Auth()),
+        )
+        // Lỗi hạ tầng không phải hết lượt / key chết: không thông báo
+        assertNull(failoverNoticeText(gemini2, groq1, ModelError.Server(500)))
+        // "Chuyển" về đúng key cũ: không thông báo
+        assertNull(failoverNoticeText(gemini2, gemini2, ModelError.QuotaExceeded()))
+    }
+
+    @Test fun keyChipMappingCoversServingReadyCooldownAndAuth() {
+        val now = 1_000_000L
+        assertEquals(KeyChip.Serving, keyChipUi(null, isServing = true, now).chip)
+        assertEquals(KeyChip.Ready, keyChipUi(null, isServing = false, now).chip)
+        // Hết lượt theo phút: gợi ý mở lại sau ~1 phút
+        val perMinute = KeyLinkStatus(lastErrorKind = "RateLimited", lastErrorAtMs = now, cooldownUntilMs = now + 60_000L)
+        val c1 = keyChipUi(perMinute, isServing = false, now)
+        assertEquals(KeyChip.Cooldown, c1.chip)
+        assertEquals("Hết lượt", c1.label)
+        assertEquals("mở lại sau ~1 phút", c1.hint)
+        // Hết lượt theo ngày: mở lại ~15:00
+        val daily = KeyLinkStatus(lastErrorKind = "QuotaExceeded", lastErrorAtMs = now, cooldownUntilMs = now + 600_000L)
+        assertEquals("mở lại ~15:00", keyChipUi(daily, isServing = false, now).hint)
+        // Cooldown đã qua: coi như sẵn sàng lại
+        val expired = KeyLinkStatus(lastErrorKind = "RateLimited", lastErrorAtMs = now - 120_000L, cooldownUntilMs = now - 60_000L)
+        assertEquals(KeyChip.Ready, keyChipUi(expired, isServing = false, now).chip)
+        // Key chết đứng trên «hết lượt»
+        val auth = KeyLinkStatus(lastErrorKind = "Auth", lastErrorAtMs = now, cooldownUntilMs = now + 600_000L)
+        assertEquals(KeyChip.AuthError, keyChipUi(auth, isServing = false, now).chip)
+    }
+
+    @Test fun failoverModelReportsAttemptFailureAndSwitch() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        fun scripted(fail: ModelError?) = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                fail?.let { throw it }
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+            }
+        }
+        val ids = listOf(
+            ServingLink("g", "Gemini", 1, 2, "m1"),
+            ServingLink("g", "Gemini", 2, 2, "m1"),
+        )
+        val attempts = mutableListOf<Int>()
+        val failures = mutableListOf<Pair<Int, Long>>()
+        val switches = mutableListOf<Pair<Int, Int>>()
+        val model = FailoverChatModel(
+            listOf(scripted(ModelError.RateLimited(null)), scripted(null)),
+            nowMs = { 5_000L },
+            linkIds = ids,
+            onAttempt = { attempts += it.keyIndex },
+            onFailed = { link, _, until -> failures += link.keyIndex to until },
+            onSwitch = { from, to, _ -> switches += from.keyIndex to to.keyIndex },
+        )
+        model.complete("s", emptyList(), emptyList())
+        assertEquals(listOf(1, 2), attempts)
+        // RateLimited không có retryAfter: bỏ qua 60 giây kể từ mốc cố định 5_000
+        assertEquals(listOf(1 to 65_000L), failures)
+        assertEquals(listOf(1 to 2), switches)
+    }
+
+    @Test fun failoverModelStaysSilentForFirstSelectionAndSelfRecovery() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        var calls = 0
+        val flaky = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                calls++
+                if (calls == 1) throw ModelError.QuotaExceeded()
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+            }
+        }
+        val switches = mutableListOf<Int>()
+        val model = FailoverChatModel(
+            listOf(flaky), nowMs = { 0L },
+            linkIds = listOf(ServingLink("g", "Gemini", 1, 1, "m1")),
+            onSwitch = { _, _, _ -> switches += 1 },
+        )
+        // Lượt đầu: key duy nhất sập, không còn key nào khác → lỗi văng ra, không có thông báo chuyển
+        try {
+            model.complete("s", emptyList(), emptyList())
+            fail("phải văng lỗi hết hạn mức")
+        } catch (e: ModelError.QuotaExceeded) {
+            // đúng như mong đợi
+        }
+        // Lượt sau: mọi mắt xích đang cooldown nên thử lại tất cả — vẫn chính key đó chạy ngon: tự hồi, không thông báo
+        model.complete("s", emptyList(), emptyList())
+        assertTrue(switches.isEmpty())
+    }
+
+    @Test fun singleKeyMainIsStillTracked() = runTest {
+        val s = store()
+        val p = connected(s, key = "only")
+        s.use(ModelRole.Main, p.id, "m1", none)
+        val model = s.modelFor(ModelRole.Main)
+        assertTrue(model is FailoverChatModel)
+        model!!.complete("s", emptyList(), emptyList())
+        assertEquals(1, s.servingMain.value?.keyIndex)
+        assertEquals(1, s.servingMain.value?.keyCount)
+    }
+
+    @Test fun keyStatusesAreTrackedNoticedAndPersistedAcrossStoreInstances() = runTest {
+        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3", modelFactory = { cfg, apiKey, _, _ ->
+            object : ChatModel {
+                override val capabilities: Capabilities = cfg.capabilities
+                override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                    if (apiKey == "k1") throw ModelError.QuotaExceeded()
+                    return ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))
+                }
+            }
+        })
+        val p = s.connect(
+            "Gemini", ProviderConfig.Kind.Gemini, "https://generativelanguage.googleapis.com/v1beta",
+            "k1", listOf(ListedModel("m1")),
+        )
+        assertEquals(2, s.appendProviderKey(p.id, "k2"))
+        s.use(ModelRole.Main, p.id, "m1", none)
+
+        val notices = mutableListOf<String>()
+        val collectJob = launch { s.failoverNotices.collect { notices += it } }
+        delay(10) // cho bên thu kịp đăng ký trước khi chạy (thời gian ảo của runTest)
+        s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        collectJob.cancel()
+
+        // Thông báo chuyển key: hãng + số key ở cả hai vế
+        assertEquals(listOf("Gemini key 1 hết lượt → đã chuyển sang Gemini · key 2/2"), notices)
+        // Đang chạy: Gemini key 2/2
+        val serving = s.servingMain.value
+        assertEquals("Gemini", serving?.providerName)
+        assertEquals(2, serving?.keyIndex)
+        assertEquals(2, serving?.keyCount)
+        // Key 1 ghi lỗi hết hạn mức + cooldown còn hiệu lực; key 2 sạch lỗi và đã được dùng
+        val st = s.keyStatuses.value[p.id]
+        assertEquals("QuotaExceeded", st?.get(0)?.lastErrorKind)
+        assertTrue(st!![0].cooldownUntilMs > System.currentTimeMillis())
+        assertNull(st[1].lastErrorKind)
+        assertTrue(st[1].lastUsedAtMs > 0)
+        // Danh sách key cho Cài đặt: đủ 2 key, đúng thứ tự xoay vòng, đuôi đã che, chip khớp trạng thái
+        val rows = s.keyRows(p.id)
+        assertEquals(2, rows.size)
+        assertEquals("…k1", rows[0].tail)
+        assertEquals(KeyChip.Cooldown, rows[0].chip.chip)
+        assertEquals(KeyChip.Serving, rows[1].chip.chip)
+        // Mở lại store trên cùng thư mục: trạng thái key vẫn còn
+        assertEquals("QuotaExceeded", store().keyStatuses.value[p.id]?.get(0)?.lastErrorKind)
+        // Thay toàn bộ key (đổi key) thì trạng thái của key cũ bị xoá, không dính sang key mới
+        s.updateProviderKey(p.id, "k9")
+        assertNull(s.keyStatuses.value[p.id])
     }
 
     private class FakeModel(override val capabilities: Capabilities) : ChatModel {

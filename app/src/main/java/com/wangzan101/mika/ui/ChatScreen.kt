@@ -7,8 +7,10 @@ import com.wangzan101.mika.core.cap.web.AttachedPage
 import com.wangzan101.mika.ui.components.DirectionalIcon
 import com.wangzan101.mika.ui.components.keepsKeyboard
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
@@ -120,7 +122,14 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.cap.web.KeptPage
 import com.wangzan101.mika.chat.SharedFile
 import com.wangzan101.mika.confirm.ConfirmationCopy
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.wangzan101.mika.cap.phone.PhoneServices
+import com.wangzan101.mika.cap.phone.setup.BankRestoreResult
+import com.wangzan101.mika.cap.phone.setup.DeveloperSettings
 import com.wangzan101.mika.settings.Prerequisites
+import com.wangzan101.mika.settings.ProviderStore
+import com.wangzan101.mika.settings.ServingLink
 import com.wangzan101.mika.settings.RecommendedTask
 import com.wangzan101.mika.settings.RecommendedTaskStore
 import com.wangzan101.mika.takeover.Takeover
@@ -295,6 +304,34 @@ fun ChatScreen(
     val c = MikaTheme.colors
     val backdrop = rememberGlassBackdrop()
     val context = LocalContext.current
+
+    // ---- Phòng AI v3.4: cho người dùng thấy đang chạy hãng/key nào, và chế độ «đi ngân hàng» ----
+    val providerStore = remember(context) { runCatching { ProviderStore.get(context) }.getOrNull() }
+    val servingFlow = remember(providerStore) { providerStore?.servingMain ?: MutableStateFlow<ServingLink?>(null) }
+    val serving by servingFlow.collectAsState()
+    var failoverNotice by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(providerStore) { providerStore?.failoverNotices?.collect { failoverNotice = it } }
+    // Bắt đầu một lượt hỏi mới thì câu thông báo chuyển key của lượt trước không còn ý nghĩa nữa.
+    var seenExchanges by rememberSaveable { mutableIntStateOf(-1) }
+    LaunchedEffect(ui.exchanges.size) {
+        if (seenExchanges >= 0 && ui.exchanges.size > seenExchanges) failoverNotice = null
+        seenExchanges = ui.exchanges.size
+    }
+    val bankMode = remember(context) { runCatching { PhoneServices.of(context).bankMode }.getOrNull() }
+    val bankPendingFlow = remember(bankMode) { bankMode?.pendingRestore ?: MutableStateFlow(false) }
+    val bankPending by bankPendingFlow.collectAsState()
+    val bankRestoreFlow = remember(bankMode) { bankMode?.lastRestore ?: MutableStateFlow<BankRestoreResult?>(null) }
+    val bankRestore by bankRestoreFlow.collectAsState()
+    var bankCardDismissed by remember { mutableStateOf(false) }
+    var bankConfirmOff by remember { mutableStateOf(false) }
+    var bankOffNote by remember { mutableStateOf<String?>(null) }
+    // Mở app vào thẳng màn hình này: thử bật lại quyền đã tắt khi đi ngân hàng.
+    LaunchedEffect(bankMode) { bankMode?.restoreOnLaunch() }
+    // Quay lại app (ví dụ vừa bật tay Tùy chọn nhà phát triển theo thẻ nhắc): thử bật lại tiếp.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        bankCardDismissed = false
+        scope.launch { bankMode?.restoreOnLaunch() }
+    }
     /** 长按了的那条消息;菜单开着(收起的动画放完才清掉)。 */
     var menu by remember { mutableStateOf<MessageTarget?>(null) }
     /** 选了「选择文字」的那条:它换回系统的长按选中;换对话时清掉。 */
@@ -381,6 +418,7 @@ fun ChatScreen(
                 // 别的对话里还有任务在跑(并行时):菜单上一个小圆点,侧栏「进行中」里能切过去
                 leftBadge = others.isNotEmpty(),
                 right = {
+                    BarIconButton(MikaIcons.Shield, "Đi ngân hàng: tắt hết quyền", { bankConfirmOff = true })
                     BarIconButton(MikaIcons.Paperclip, stringResource(R.string.file_library_title), onOpenFiles)
                     BarIconButton(MikaIcons.New, stringResource(R.string.chat_new), { vm.newConversation() }, enabled = vm.canSwitch())
                 },
@@ -392,6 +430,42 @@ fun ChatScreen(
                     null -> Color.Unspecified
                 },
             )
+            // Dòng trạng thái key (v3.4): luôn cho thấy hãng + key số mấy + model đang chạy cho mô hình chính.
+            serving?.let { link ->
+                Text(
+                    "Đang chạy: ${link.statusText()}",
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp),
+                    style = MikaType.Caption, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // Thông báo chuyển key giữa lượt (hết lượt / key chết): hãng + số key ở cả hai vế.
+            failoverNotice?.let { note ->
+                Text(
+                    note,
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp),
+                    style = MikaType.Caption, color = c.warn, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // Đã tắt quyền đi ngân hàng mà app chưa tự bật lại hết được: thẻ nhắc kèm hai đường bật tay.
+            if (bankPending && !bankCardDismissed &&
+                (bankRestore is BankRestoreResult.NeedsManual || bankRestore is BankRestoreResult.Failed)
+            ) {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    NeedCard(
+                        "Quyền điều khiển điện thoại đang tắt",
+                        bankRestoreSummary(bankRestore) ?: "",
+                        buttons = {
+                            CardButton("Mở Tùy chọn nhà phát triển", primary = true) {
+                                openSettingsPage(context, DeveloperSettings.developerOptionsPage())
+                            }
+                            CardButton("Mở Trợ năng") {
+                                openSettingsPage(context, listOf(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)))
+                            }
+                        },
+                        footer = { TextLink("Để sau") { bankCardDismissed = true } },
+                    )
+                }
+            }
         }
 
         Composer(
@@ -560,6 +634,34 @@ fun ChatScreen(
                 ) { Text(stringResource(R.string.chat_example_replace_action)) }
             },
             dismissButton = { TextButton({ pendingExample = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+
+    if (bankConfirmOff) {
+        MikaDialog(
+            onDismissRequest = { bankConfirmOff = false },
+            title = { Text("Tắt hết quyền để đi ngân hàng?") },
+            text = {
+                Text("App sẽ tắt Trợ năng của Phòng AI và Tùy chọn nhà phát triển để anh vào ngân hàng không bị chặn. Trong lúc tắt, Phòng AI không điều khiển điện thoại được (trò chuyện vẫn bình thường). Mở lại app, quyền sẽ tự bật lại.")
+            },
+            confirmButton = {
+                TextButton({
+                    bankConfirmOff = false
+                    val bank = bankMode
+                    if (bank == null) bankOffNote = "Chưa tắt được: phần điều khiển điện thoại chưa sẵn sàng."
+                    else scope.launch { bankOffNote = bankOffSummary(bank.turnOff()).joinToString("\n") }
+                }) { Text("Tắt hết quyền") }
+            },
+            dismissButton = { TextButton({ bankConfirmOff = false }) { Text("Huỷ") } },
+        )
+    }
+
+    bankOffNote?.let { note ->
+        MikaDialog(
+            onDismissRequest = { bankOffNote = null },
+            title = { Text("Đi ngân hàng") },
+            text = { Text(note) },
+            confirmButton = { TextButton({ bankOffNote = null }) { Text("Đã rõ") } },
         )
     }
 
@@ -1192,6 +1294,14 @@ private fun SourceChip(text: String?, runId: String?, loadSource: suspend (Strin
  * [options] 是一列可点的答案;按钮并排,次要的在左(浅色)、主要的在右(蓝色);[footer] 在最下面。
  */
 @Composable
+/** Mở trang cài đặt hệ thống theo danh sách Intent dự phòng; trang đầu tiên mở được thì thôi. */
+private fun openSettingsPage(context: Context, pages: List<Intent>) {
+    for (page in pages) {
+        if (runCatching { context.startActivity(page) }.isSuccess) return
+    }
+    Toast.makeText(context, "Không mở được trang cài đặt", Toast.LENGTH_SHORT).show()
+}
+
 private fun NeedCard(
     title: String,
     body: String,

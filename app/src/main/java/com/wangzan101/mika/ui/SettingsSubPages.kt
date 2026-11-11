@@ -517,6 +517,7 @@ fun RoutesScreen(count: Int?, onClear: () -> Unit, onBack: () -> Unit) {
 fun RecoveryScreen(onBack: () -> Unit, onOpenSelfCheck: () -> Unit = {}) {
     PageScaffold(stringResource(R.string.settings_recovery), onBack) {
         RecoverySwitches()
+        BankModeSettings()
         GroupCard {
             ListRow(
                 MikaIcons.Bug, stringResource(R.string.selfcheck_title), stringResource(R.string.selfcheck_row_sub), first = true,

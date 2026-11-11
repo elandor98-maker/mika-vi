@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.core.chatgpt.SignInFailure
 import com.wangzan101.mika.core.model.ModelRole
+import com.wangzan101.mika.settings.KeyChip
+import com.wangzan101.mika.settings.KeyChipUi
 import com.wangzan101.mika.settings.ModelOption
 import com.wangzan101.mika.settings.ModelOptions
 import com.wangzan101.mika.settings.Provider
@@ -148,9 +150,9 @@ internal fun RoleCard(icon: ImageVector, label: String, line: ModelsCopy.RoleLin
 
 private val RoleTileShape = RoundedCornerShape(12.dp)
 
-/** 服务商一行:左边是名字首字的图标块;[warning] 是要提醒的一句(用提醒色另起一行)。 */
+/** 服务商一行:左边是名字首字的图标块;[warning] 是要提醒的一句(用提醒色另起一行)。[keyCount] > 0 时 dòng phụ ghi thêm «· N key» (v3.4). */
 @Composable
-internal fun ProviderRow(p: Provider, line: String, first: Boolean, warning: String? = null, onClick: () -> Unit) {
+internal fun ProviderRow(p: Provider, line: String, first: Boolean, warning: String? = null, keyCount: Int = 0, onClick: () -> Unit) {
     val c = MikaTheme.colors
     Column {
         if (!first) Hairline()
@@ -163,11 +165,29 @@ internal fun ProviderRow(p: Provider, line: String, first: Boolean, warning: Str
             }
             Column(Modifier.weight(1f)) {
                 Text(ModelsCopy.providerName(p), style = MikaType.Body, color = c.ink, maxLines = 1)
-                Text(line, Modifier.padding(top = 2.dp), style = MikaType.Caption, color = c.ink3)
+                Text(if (keyCount > 0) "$line · $keyCount key" else line, Modifier.padding(top = 2.dp), style = MikaType.Caption, color = c.ink3)
                 warning?.let { Text(it, Modifier.padding(top = 2.dp).testTag("provider-warning-${p.name}"), style = MikaType.Caption, color = c.warn) }
             }
             RowChevron()
         }
+    }
+}
+
+/** Chip trạng thái của một key đã lưu (v3.4): màu theo loại chip; có gợi ý «mở lại…» thì ghi nhỏ ở dưới. */
+@Composable
+private fun KeyChipView(chip: KeyChipUi) {
+    val c = MikaTheme.colors
+    val (bg, fg) = when (chip.chip) {
+        KeyChip.Serving -> c.okSoft to c.ok
+        KeyChip.Ready -> c.neutralSoft to c.ink2
+        KeyChip.Cooldown -> c.warnSoft to c.warn
+        KeyChip.AuthError -> c.badSoft to c.bad
+    }
+    Column(horizontalAlignment = Alignment.End) {
+        Box(Modifier.background(bg, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp)) {
+            Text(chip.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = fg, maxLines = 1)
+        }
+        chip.hint?.let { Text(it, Modifier.padding(top = 2.dp), style = MikaType.Caption, color = c.ink3, maxLines = 1) }
     }
 }
 
@@ -344,6 +364,21 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             }
         }
         (state as? ListState.Failed)?.let { FooterNote(ModelSetupCopy.failed(it.message), color = c.bad) }
+
+        // Phòng AI v3.4: liệt kê TỪNG key đã lưu của hãng (trước đây trang này chỉ có một dòng
+        // «API Key: Đã lưu», không đếm được có bao nhiêu key, cũng không thấy key nào hết lượt).
+        // Thứ tự ở đây = thứ tự xoay vòng = số «key x/y» trên dòng trạng thái của màn hình trò chuyện.
+        val savedKeys = ui.keyRows[p.id].orEmpty()
+        if (savedKeys.isNotEmpty()) {
+            GroupLabel("${ModelsCopy.providerName(p)} · ${savedKeys.size} key đã lưu")
+            GroupCard {
+                savedKeys.forEachIndexed { i, row ->
+                    ListRow(null, "Key ${row.index}", row.tail, first = i == 0) {
+                        KeyChipView(row.chip)
+                    }
+                }
+            }
+        }
 
         if (p.kind == ProviderConfig.Kind.Local) {
             GroupCard {
