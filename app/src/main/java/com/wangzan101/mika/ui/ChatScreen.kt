@@ -1294,14 +1294,6 @@ private fun SourceChip(text: String?, runId: String?, loadSource: suspend (Strin
  * [options] 是一列可点的答案;按钮并排,次要的在左(浅色)、主要的在右(蓝色);[footer] 在最下面。
  */
 @Composable
-/** Mở trang cài đặt hệ thống theo danh sách Intent dự phòng; trang đầu tiên mở được thì thôi. */
-private fun openSettingsPage(context: Context, pages: List<Intent>) {
-    for (page in pages) {
-        if (runCatching { context.startActivity(page) }.isSuccess) return
-    }
-    Toast.makeText(context, "Không mở được trang cài đặt", Toast.LENGTH_SHORT).show()
-}
-
 private fun NeedCard(
     title: String,
     body: String,
@@ -1326,6 +1318,14 @@ private fun NeedCard(
             footer?.let { Box(Modifier.padding(top = 10.dp).fillMaxWidth(), contentAlignment = Alignment.Center) { it() } }
         }
     }
+}
+
+/** Mở trang cài đặt hệ thống theo danh sách Intent dự phòng; trang đầu tiên mở được thì thôi. */
+private fun openSettingsPage(context: Context, pages: List<Intent>) {
+    for (page in pages) {
+        if (runCatching { context.startActivity(page) }.isSuccess) return
+    }
+    Toast.makeText(context, "Không mở được trang cài đặt", Toast.LENGTH_SHORT).show()
 }
 
 @Composable
