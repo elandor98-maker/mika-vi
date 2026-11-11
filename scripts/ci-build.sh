@@ -45,6 +45,9 @@ sdkmanager "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "b
 # mac dinh cua Gradle debug de moi ban build ky cung mot khoa.
 mkdir -p "${HOME}/.android"
 base64 -d signing/debug.keystore.b64 > "${HOME}/.android/debug.keystore"
+# Anh icon ung dung (anh cua nguoi dung) giu dang base64 trong repo, giai ma vao
+# drawable-nodpi truoc khi build; file PNG khong nam trong repo dang nhi phan.
+base64 -d signing/phongai-icon.b64 > app/src/main/res/drawable-nodpi/phongai_icon_photo.png
 
 # --- 4. Build ban perf (arm64) ------------------------------------------------
 set -o pipefail
