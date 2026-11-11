@@ -38,6 +38,14 @@ export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-t
 yes | sdkmanager --licenses > /dev/null 2>&1 || true
 sdkmanager "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
+# --- 3b. Khoa ky co dinh cho moi ban build -----------------------------------
+# Thieu buoc nay, moi lan chay Actions lai sinh khoa ky debug ngau nhien khac
+# nhau -> ban moi khong cai de len ban cu duoc (xung dot chu ky), phai go app
+# va mat het du lieu + key da luu. Giai ma khoa co dinh cua repo vao dung cho
+# mac dinh cua Gradle debug de moi ban build ky cung mot khoa.
+mkdir -p "${HOME}/.android"
+base64 -d signing/debug.keystore.b64 > "${HOME}/.android/debug.keystore"
+
 # --- 4. Build ban perf (arm64) ------------------------------------------------
 set -o pipefail
 # gradlew day len GitHub qua API bi mat quyen chay (mode 100644), nen cap quyen o day.

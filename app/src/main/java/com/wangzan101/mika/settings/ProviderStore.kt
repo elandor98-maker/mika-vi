@@ -943,17 +943,24 @@ class ProviderStore(
         _configs.value = _configs.value.filter { it.id in used }
     }
 
-    /** Cài mới tinh (chưa có nhà cung cấp nào): tạo sẵn AI nội bộ và gán mô hình chính là
-     * bản 3B trong danh mục — file chưa tải cũng gán; lúc dùng, lỗi thân thiện sẽ nhắc tải. */
+    /** Mô hình chính đang trỏ vào AI nội bộ nhưng file mô hình không còn trên máy
+     * (ví dụ gỡ app cài lại làm mất dữ liệu): bỏ gán vai chính để lần gắn key nhà
+     * cung cấp tiếp theo tự nhận làm mô hình chính, thay vì chết ngay ở câu đầu. */
+    private fun repairPhantomLocalMain() {
+        val ctx = appContext ?: return
+        val mainId = _roles.value.main ?: return
+        val cfg = _configs.value.firstOrNull { it.id == mainId } ?: return
+        if (cfg.kind != ProviderConfig.Kind.Local) return
+        if (java.io.File(LocalModelStore.modelsDir(ctx), cfg.model).isFile) return
+        _roles.value = _roles.value.copy(main = null)
+        prune()
+    }
+
+    /** Cài mới tinh (chưa có nhà cung cấp nào): chỉ tạo sẵn mục AI nội bộ để màn hình
+     * tải mô hình offline dùng; KHÔNG gán sẵn mô hình chính vào file chưa tải — làm vậy
+     * app chết ngay từ câu đầu và chặn luôn cơ chế tự nhận mô hình chính khi gắn key. */
     private fun seedLocalDefault() {
-        val p = findOrAddProvider(LOCAL_PROVIDER_NAME, ProviderConfig.Kind.Local, "")
-        val fileName = LocalModelStore.PRESETS.first().fileName
-        val cfg = ProviderConfig(
-            newId(), ProviderConfig.Kind.Local, "", fileName,
-            LocalLlamaModel.DEFAULT_CAPABILITIES, p.name, p.id,
-        )
-        _configs.value = _configs.value + cfg
-        _roles.value = _roles.value.with(ModelRole.Main, RoleChoice.Model(cfg.id)) ?: _roles.value
+        findOrAddProvider(LOCAL_PROVIDER_NAME, ProviderConfig.Kind.Local, "")
         writeConfig()
     }
 
@@ -974,6 +981,7 @@ class ProviderStore(
         _roles.value = _roles.value.keepOnly(_configs.value.map { it.id }.toSet())
         repairUnavailableReasoningEfforts()
         prune()
+        repairPhantomLocalMain()
         if (_providers.value.isEmpty() && _configs.value.isEmpty()) seedLocalDefault()
         if (configFile.isFile) {
             val text = configJson()
