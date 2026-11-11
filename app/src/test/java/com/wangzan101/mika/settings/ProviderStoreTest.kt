@@ -41,12 +41,13 @@ class ProviderStoreTest {
 
     private fun store(dailyUsage: (String) -> Long = { 0L }) = ProviderStore(
         tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3", dailyUsage = dailyUsage,
-    ) { cfg, apiKey, endpoint, setup ->
-        built += cfg to apiKey
-        setups += setup
-        endpoints += endpoint
-        FakeModel(cfg.capabilities)
-    }
+        modelFactory = { cfg, apiKey, endpoint, setup ->
+            built += cfg to apiKey
+            setups += setup
+            endpoints += endpoint
+            FakeModel(cfg.capabilities)
+        },
+    )
 
     private fun cfg(id: String, tools: Boolean = true, vision: Boolean = false) = ProviderConfig(
         id = id, kind = ProviderConfig.Kind.OpenAiCompat, baseUrl = "https://example.test/v1", model = "m-$id",
@@ -960,7 +961,7 @@ class ProviderStoreTest {
     @Test
     fun everyModelHandedOutIsMeteredUnderTheRoleItWasAskedFor() = runTest {
         val seen = mutableListOf<Pair<UsageSource, Usage?>>()
-        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, usage = { src, u -> seen += src to u }) { cfg, _, _, _ -> FakeModel(cfg.capabilities) }
+        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, usage = { src, u -> seen += src to u }, modelFactory = { cfg, _, _, _ -> FakeModel(cfg.capabilities) })
         val p = connected(s, name = "甲")
         s.use(ModelRole.Main, p.id, "m1", none)
         s.choose(ModelRole.Vision, RoleChoice.SameAsMain)
@@ -1021,7 +1022,8 @@ class ProviderStoreTest {
         val s = ProviderStore(
             tmp.root, AesGcmKeyCipher { key }, dailyUsage = { used[it] ?: 0 },
             usage = { source, _ -> seen += source },
-        ) { cfg, _, _, _ -> FakeModel(cfg.capabilities) }
+            modelFactory = { cfg, _, _, _ -> FakeModel(cfg.capabilities) },
+        )
         val limited = connected(s, name = "Limited")
         val available = connected(s, name = "Available")
         s.use(ModelRole.Main, limited.id, "m1", none)
@@ -1085,7 +1087,7 @@ class ProviderStoreTest {
 
     @Test fun quotaOnFirstKeyRotatesToSecondKeyOfSameProvider() = runTest {
         val called = mutableListOf<String?>()
-        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3") { cfg, apiKey, _, _ ->
+        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3", modelFactory = { cfg, apiKey, _, _ ->
             object : ChatModel {
                 override val capabilities: Capabilities = cfg.capabilities
                 override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
@@ -1094,7 +1096,7 @@ class ProviderStoreTest {
                     return ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))
                 }
             }
-        }
+        })
         val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
         assertEquals(2, s.appendProviderKey(p.id, "k2"))
         s.use(ModelRole.Main, p.id, "m1", none)
