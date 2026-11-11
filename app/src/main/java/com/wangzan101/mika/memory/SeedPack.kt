@@ -58,7 +58,7 @@ object SeedPack {
         ),
         SeedFact(
             MemoryKind.preference,
-            "Việc bật/tắt đơn giản phải đi đường ngắn nhất (đèn pin dùng công cụ hệ thống chuyên dụng, không vòng qua giao diện); thông tin biến động như giá tiền số phải đối chiếu ít nhất 2 nguồn trước khi khẳng định.",
+            "Việc bật/tắt đơn giản đi đường ngắn nhất (đèn pin dùng công cụ hệ thống, không vòng qua giao diện); thông tin biến động phải đối chiếu ít nhất 2 nguồn trước khi khẳng định.",
             listOf("bật tắt", "đường ngắn nhất", "giá tiền số", "đối chiếu 2 nguồn"),
         ),
     )
