@@ -68,11 +68,11 @@ class SkillDrafterTest {
         updates: String? = null,
     ): String {
         val sections = listOf(
-            "## 入口" to "用 `phone_launch_app` 打开微信。",
-            "## 步骤" to "1. 点搜索,用 `phone_type_text` 输入 老妈\n2. 输入 明天回家吃饭 后点发送$body",
-            "## 容易出错的地方" to "搜索结果里可能有同名群聊。",
-            "## 怎样算办成(核实证据)" to "聊天里出现刚发的消息,没有红色感叹号。",
-            "## 什么时候停下交给用户" to "需要登录时用 `hand_to_user`。",
+            "## Lối vào" to "用 `phone_launch_app` 打开微信。",
+            "## Các bước" to "1. 点搜索,用 `phone_type_text` 输入 老妈\n2. 输入 明天回家吃饭 后点发送$body",
+            "## Chỗ dễ sai" to "搜索结果里可能有同名群聊。",
+            "## Cách nhận biết đã xong (bằng chứng kiểm chứng)" to "聊天里出现刚发的消息,没有红色感叹号。",
+            "## Khi nào dừng lại và giao cho người dùng" to "需要登录时用 `hand_to_user`。",
         ).filter { it.first != drop }
         return "---\nname: $name\ndisplay: 发微信消息\ndescription: $description\napps: [$apps]\n" + updates?.let { "updates: $it\n" }.orEmpty() + "source: learned\nlearned_from: r1\n---\n" +
             sections.joinToString("\n") { "${it.first}\n${it.second}" }
@@ -126,7 +126,7 @@ class SkillDrafterTest {
         val d = draft(text(md())) as DraftResult.Draft
         assertFalse(d.skill.markdown.contains("老妈"))
         assertFalse(d.skill.markdown.contains("明天回家吃饭"))
-        assertTrue(d.skill.markdown.contains("输入 <参数>\n2. 输入 <参数> 后点发送"))
+        assertTrue(d.skill.markdown.contains("输入 <tham số>\n2. 输入 <tham số> 后点发送"))
         assertEquals(SkillStatus.pending, d.skill.status)
         assertEquals("r1", d.skill.learnedFrom)
         assertNull(d.isUpdateOf)
@@ -140,7 +140,7 @@ class SkillDrafterTest {
         assertFalse(request.contains("晚上一起吃饭"))
         assertFalse(request.contains("老妈"))
         assertFalse(request.contains("明天回家吃饭"))
-        assertTrue(request.contains("目标:给『<参数>』发『<参数>』"))
+        assertTrue(request.contains("Mục tiêu:给『<tham số>』发『<tham số>』"))
         assertTrue(request.contains("<输入内容>"))
         assertTrue(request.contains("tap 「搜索」"))
         assertTrue(model.offeredTools.single().isEmpty())
@@ -241,7 +241,7 @@ class SkillDrafterTest {
     }
 
     @Test fun missingSectionDropped() {
-        assertEquals(DraftResult.Dropped("missing_section"), draft(text(md(drop = "## 容易出错的地方"))))
+        assertEquals(DraftResult.Dropped("missing_section"), draft(text(md(drop = "## Chỗ dễ sai"))))
     }
 
     @Test fun unknownToolNameDropped() {

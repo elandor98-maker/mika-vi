@@ -45,7 +45,6 @@ class AboutScreenTest {
     private class Calls {
         val urls = mutableListOf<String>()
         var checks = 0
-        var licenses = 0
     }
 
     private val sampleDiagnostics = "Mika 诊断信息 / Mika diagnostics\n\n[App]\nversion: 0.1.0 (build abc1234)\n"
@@ -55,9 +54,9 @@ class AboutScreenTest {
         compose.setContent {
             MikaTheme {
                 AboutScreen(
-                    versionName = "0.1.0", build = "abc1234", beta = true, update = update, issueUrl = "issue://prefilled",
+                    versionName = "0.1.0", build = "abc1234", beta = true, update = update,
                     onCheck = { calls.checks++ }, onOpenUrl = { calls.urls += it },
-                    onOpenLicense = { calls.licenses++ }, onBack = {},
+                    onBack = {},
                     diagnostics = { sampleDiagnostics },
                 )
             }
@@ -78,7 +77,7 @@ class AboutScreenTest {
         compose.onNodeWithText("版本 0.1.0").assertIsDisplayed()
         compose.onNodeWithText("Beta").assertIsDisplayed()
         compose.onNodeWithText("· 构建 abc1234").assertIsDisplayed()
-        for (t in listOf("检查更新", "更新记录", "反馈问题", "开源仓库", "使用说明与参与方式", AboutCopy.DATA_NOTE, AboutCopy.AUTHOR)) {
+        for (t in listOf("检查更新", "更新记录", "反馈问题", "开源仓库", AboutCopy.DATA_NOTE)) {
             scrollTo(t)
             compose.onNodeWithText(t).assertIsDisplayed()
         }
@@ -89,30 +88,23 @@ class AboutScreenTest {
     @Test
     fun externalRowsOpenLinks() {
         val calls = about()
-        for (t in listOf("开源仓库", "使用说明与参与方式")) {
+        for (t in listOf("开源仓库")) {
             scrollTo(t)
             compose.onNodeWithText(t).performClick()
         }
-        assertEquals(listOf(MikaLinks.REPO, MikaLinks.README), calls.urls)
+        assertEquals(listOf(MikaLinks.REPO), calls.urls)
     }
 
     @Test
-    fun footerOpensLicense() {
-        val calls = about()
-        compose.onNodeWithTag("about-license").performScrollTo().performClick()
-        assertEquals(1, calls.licenses)
-    }
-
-    @Test
-    fun feedbackSheetHasGitHubAndDiagnostics() {
+    fun feedbackSheetHasTelegramAndDiagnostics() {
         val calls = about()
         compose.onNodeWithText("反馈问题").performClick()
         compose.awaitOne(AboutCopy.FEEDBACK_SHEET_SUB)
         compose.onAllNodesWithTag("feedback-option").assertCountEquals(2)
         compose.onNodeWithText("复制诊断信息").assertIsDisplayed()
-        compose.onNodeWithText(AboutCopy.FEEDBACK_GITHUB).performClick()
+        compose.onNodeWithText(AboutCopy.FEEDBACK_TELEGRAM).performClick()
         compose.waitForIdle()
-        assertEquals(listOf("issue://prefilled"), calls.urls)
+        assertEquals(listOf(MikaLinks.TELEGRAM), calls.urls)
     }
 
     /** 「复制诊断信息」先打开预览:整段文字看得见,点「复制」才进剪贴板。 */

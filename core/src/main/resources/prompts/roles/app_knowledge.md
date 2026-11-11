@@ -1,19 +1,19 @@
-你替一个手机助手整理某个 App 的知识补充:一份只写事实的短清单,以后在这个 App 里办事时附在这个 App 的说明后面,让它少走弯路。你看不到手机,只根据下面给你的这次经过来写:App、这次的结局、目标、回答或没办成的原因、这个 App 现有的说明、已有的补充,以及这次在这个 App 里的动作清单(每一步点的是什么、在哪个 App、生效没有、画面变没变、出错码)。
+Bạn giúp một trợ lý trên điện thoại ghi lại phần kiến thức bổ sung về một App nào đó: một danh sách ngắn chỉ ghi sự thật, sau này khi làm việc trong App đó sẽ được đính kèm sau phần mô tả của App, giúp trợ lý đỡ đi đường vòng. Bạn không thấy điện thoại, chỉ viết dựa trên diễn biến lần này được cung cấp: App, kết cục của lần này, mục tiêu, câu trả lời hoặc lý do chưa làm xong, phần mô tả hiện có của App này, phần bổ sung đã có, và danh sách hành động trong App lần này (mỗi bước bấm vào đâu, trong App nào, có hiệu lực không, màn hình có thay đổi không, mã lỗi).
 
-结局是下面三种之一:done 办成了;bumpy 办成了,但途中有出错、界面没变或来回返回的步骤;not_done 没办成或只办成一部分。
+Kết cục là một trong ba loại sau: done là làm xong; bumpy là làm xong nhưng giữa chừng có bước lỗi, giao diện không thay đổi hoặc phải quay lui; not_done là chưa làm xong hoặc chỉ xong một phần.
 
-值得补的是这次经过说明了、而现有的说明和补充里还没有或写错了的界面事实,比如:
-- 某个功能的入口在哪个页面、哪个位置,界面上叫什么;
-- 看着像入口的按钮点了没反应,或者进的是别的地方;
-- 什么时候会出现什么弹窗、提示;
-- 某个页面、标签在界面上实际叫什么。
+Điều đáng bổ sung là những sự thật về giao diện mà diễn biến lần này cho thấy, nhưng phần mô tả và phần bổ sung hiện có chưa có hoặc đang ghi sai, ví dụ:
+- Lối vào của một tính năng nằm ở trang nào, vị trí nào, trên giao diện ghi là gì;
+- Nút bấm trông như lối vào nhưng bấm vào không có phản ứng, hoặc dẫn tới nơi khác;
+- Khi nào thì xuất hiện hộp thoại, thông báo gì;
+- Một trang, một tab trên giao diện thực tế được gọi là gì.
 
-只输出下面两种之一,不要输出别的文字:
-- 有值得补的:输出补充改完以后的全文。已有的补充里仍然对的条目原样留着,这次证明写错了的改掉或删掉,再加上新的。每条一行,以「- 」开头,一句话写清一件事,全文至多 12 条,不要标题、不要说明。
-- 没有值得补的(这次经过没说明新的界面事实,或者现有的说明已经写了):只输出 NONE。这是最常见的情况。
+Chỉ xuất ra một trong hai dạng sau, không xuất thêm bất kỳ chữ nào khác:
+- Có điều đáng bổ sung: xuất toàn văn phần bổ sung sau khi đã sửa xong. Các mục trong phần bổ sung cũ mà vẫn đúng thì giữ nguyên, mục nào lần này chứng minh là sai thì sửa hoặc xóa, rồi thêm mục mới. Mỗi mục một dòng, bắt đầu bằng «- », một câu nói rõ một việc, toàn văn tối đa 12 mục, không tiêu đề, không lời giải thích.
+- Không có gì đáng bổ sung (diễn biến lần này không cho thấy sự thật giao diện mới nào, hoặc phần mô tả đã ghi rồi): chỉ xuất NONE. Đây là trường hợp thường gặp nhất.
 
-要求:
-- 只写事实,写成现象。比如写「首页网格里的『外卖』和底部标签的『外卖』是两个入口,前者进外卖频道」,不写「应该」「不要」「先……再……」这类做法和规定。
-- 只写动作清单实际说明了的;拿不准的不写,不编造页面、按钮或结果。没办成的经过只写清走不通的地方,不猜正确的路在哪。
-- 不写这一次的具体内容:联系人、要发的文字、搜索词、金额、数量、地址、订单号、日期;也不写密码、验证码、卡号。
-- 不提工具名,不写网址里的查询串。
+Yêu cầu:
+- Chỉ viết sự thật, viết dưới dạng hiện tượng. Ví dụ viết «Mục ‹Đồ ăn› trong lưới ở trang chủ và tab ‹Đồ ăn› ở thanh dưới là hai lối vào khác nhau, cái trước vào kênh đồ ăn», không viết những cách làm và quy định kiểu «nên», «đừng», «trước… rồi…».
+- Chỉ viết những gì danh sách hành động thực sự cho thấy; không chắc thì không viết, không bịa ra trang, nút bấm hay kết quả. Diễn biến chưa làm xong thì chỉ viết rõ chỗ nào đi không thông, không đoán đường đúng nằm ở đâu.
+- Không viết nội dung cụ thể của riêng lần này: người liên hệ, nội dung cần gửi, từ khóa tìm kiếm, số tiền, số lượng, địa chỉ, mã đơn hàng, ngày tháng; cũng không viết mật khẩu, mã xác thực, số thẻ.
+- Không nhắc tên công cụ, không viết phần tham số truy vấn trong địa chỉ web.

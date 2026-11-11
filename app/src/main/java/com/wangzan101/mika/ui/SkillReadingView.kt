@@ -44,13 +44,13 @@ internal fun SkillReadingView(markdown: String) {
             Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.hair))
             for ((title, contents) in remember(blocks) { readingSections(blocks) }) {
                 val label = title?.text?.text.orEmpty()
-                val caution = label.startsWith("容易出错的地方")
+                val caution = label.startsWith("Chỗ dễ sai")
                 val icon = when {
-                    label.startsWith("入口") -> MikaIcons.Pin
-                    label.startsWith("步骤") -> MikaIcons.Route
+                    label.startsWith("Lối vào") -> MikaIcons.Pin
+                    label.startsWith("Các bước") -> MikaIcons.Route
                     caution -> MikaIcons.Info
-                    label.startsWith("怎样算办成") -> MikaIcons.Check
-                    label.startsWith("什么时候停下交给用户") -> MikaIcons.Hand
+                    label.startsWith("Cách nhận biết đã xong") -> MikaIcons.Check
+                    label.startsWith("Khi nào dừng lại và giao cho người dùng") -> MikaIcons.Hand
                     else -> null
                 }
                 val panel = if (caution) Modifier.background(c.warnSoft, RoundedCornerShape(10.dp)).padding(12.dp) else Modifier
@@ -61,7 +61,7 @@ internal fun SkillReadingView(markdown: String) {
                         Text(title.text, Modifier.semantics { heading() }, style = MikaType.BodyStrong, color = c.ink)
                     }
                     for (block in contents) {
-                        if (block is MdBlock.ListBlock && block.start != null && label.startsWith("步骤")) {
+                        if (block is MdBlock.ListBlock && block.start != null && label.startsWith("Các bước")) {
                             StepList(block, block.start, body)
                         } else {
                             MarkdownBlocks(listOf(block), body)

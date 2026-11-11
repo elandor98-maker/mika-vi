@@ -242,39 +242,39 @@ private fun specificClass(className: String?): String? {
 
 /** 给模型和草稿用的一句中文，不含输入的原文，也不含坐标。 */
 fun teachLine(step: TeachStep): String {
-    val where = listOfNotNull(step.window, step.packageName).joinToString(" · ").ifBlank { "未知界面" }
+    val where = listOfNotNull(step.window, step.packageName).joinToString(" · ").ifBlank { "giao diện không rõ" }
     val target = step.nodeName ?: step.viewId
     val observed = when (step.kind) {
-        TeachKind.Click -> if (target != null) "点了「$target」" else "点了一下，没有可靠的界面节点"
-        TeachKind.LongClick -> if (target != null) "长按了「$target」" else "长按了一下，没有可靠的界面节点"
+        TeachKind.Click -> if (target != null) "Đã bấm vào «$target»" else "Đã bấm một cái, không có nút giao diện đáng tin cậy"
+        TeachKind.LongClick -> if (target != null) "Đã nhấn giữ «$target»" else "Đã nhấn giữ một cái, không có nút giao diện đáng tin cậy"
         TeachKind.Type -> when {
-            step.sensitiveOmitted -> "在受保护的输入位置输入了内容（未保存）"
-            target != null -> "在「$target」输入了文字（文字未保存）"
-            else -> "在没有名字的输入位置输入了文字（文字未保存）"
+            step.sensitiveOmitted -> "Đã nhập nội dung vào ô nhập được bảo vệ (không lưu lại)"
+            target != null -> "Đã nhập chữ vào «$target» (không lưu lại nội dung)"
+            else -> "Đã nhập chữ vào ô nhập không có tên (không lưu lại nội dung)"
         }
-        TeachKind.Scroll -> "滚动"
-        TeachKind.Window -> if (step.window != null) "切到「${step.window}」" else "切换了界面，没有可靠的窗口信息"
+        TeachKind.Scroll -> "Đã cuộn màn hình"
+        TeachKind.Window -> if (step.window != null) "Đã chuyển sang «${step.window}»" else "Đã chuyển giao diện, không có thông tin cửa sổ đáng tin cậy"
     }
     val place = if (step.kind == TeachKind.Window) step.packageName.orEmpty() else where
     return buildString {
-        append("[观察到] ").append(observed)
+        append("[Đã quan sát] ").append(observed)
         if (place.isNotBlank() && step.kind != TeachKind.Window) append("（").append(place).append("）")
         if (step.kind == TeachKind.Window && place.isNotBlank()) append("（").append(place).append("）")
-        if (step.insufficient) append("。信息不足，不能写成坐标操作")
-        step.correction?.let { append("。[你改成] ").append(it) }
-        step.explanation?.let { append("。[你说明的] ").append(it) }
+        if (step.insufficient) append(". Thông tin chưa đủ, không được viết thành thao tác theo tọa độ.")
+        step.correction?.let { append(". [Bạn sửa thành] ").append(it) }
+        step.explanation?.let { append(". [Bạn giải thích] ").append(it) }
     }
 }
 
 object TeachSkill {
     const val SOURCE = "demonstrated"
     const val PREFIX = "teach:"
-    const val NOT_TRIAL_RUN = "Mika 还没有试跑成功。"
-    const val NOT_ABSENT = "这次示范没走到的入口，不能据此认为那个入口不存在。"
-    const val STOP_IF_UNMATCHED = "当前界面看不出上面写的入口或前置条件时，停止套用这份技能，改用平常的查看和询问。"
+    const val NOT_TRIAL_RUN = "Phòng AI chưa chạy thử thành công."
+    const val NOT_ABSENT = "Lần trình diễn này không đi qua một lối vào nào đó không có nghĩa là lối vào đó không tồn tại."
+    const val STOP_IF_UNMATCHED = "Khi giao diện hiện tại không thấy lối vào hoặc điều kiện tiên quyết đã viết ở trên, hãy dừng áp dụng kỹ năng này và quay lại cách xem xét và hỏi thông thường."
     /** 模型读到试用中的示范技能时加在正文前。 */
     const val USE_NOTE =
-        "[Demonstrated, not trial-run. Mika has not successfully replayed this. " +
+        "[Demonstrated, not trial-run. Phòng AI has not successfully replayed this. " +
             "Apply it only when the current screen matches the entrance and preconditions written below. " +
             "If they do not match, stop using this skill and explore or ask. " +
             "An entrance that was not used in the demonstration is not evidence that it does not exist.]"
@@ -311,12 +311,12 @@ object TeachWatch {
 /** 发给模型的脱敏摘要，或本机直接整理出的草稿。 */
 object TeachDraft {
     fun request(session: TeachSession): String = buildString {
-        appendLine("目标:${plain(session.goal)}")
-        appendLine("下面每一步都来自同一次人工示范。来源只有观察到的、你改成的、你说明的。没有写到的入口不能推断成不存在。")
-        appendLine("输入的文字没有保存。不要编造坐标、密码、验证码或支付内容。")
-        if (session.truncated) appendLine("步骤较多，只保留了前 ${session.steps.size} 步。")
+        appendLine("Mục tiêu:${plain(session.goal)}")
+        appendLine("Mỗi bước dưới đây đều đến từ cùng một lần trình diễn. Nguồn chỉ có ba loại: đã quan sát được, bạn sửa thành, bạn giải thích. Lối vào không được nhắc tới thì không được suy ra là nó không tồn tại.")
+        appendLine("Nội dung đã nhập không được lưu lại. Không bịa tọa độ, mật khẩu, mã xác thực hay nội dung thanh toán.")
+        if (session.truncated) appendLine("Có nhiều bước, chỉ giữ lại ${session.steps.size} bước đầu.")
         session.steps.forEachIndexed { i, step -> appendLine("${i + 1}. ${teachLine(step)}") }
-        if (session.steps.none { it.needsClarification }) appendLine("没有需要用户另作说明的步骤。")
+        if (session.steps.none { it.needsClarification }) appendLine("Không có bước nào cần người dùng giải thích thêm.")
     }
 
     fun assemble(session: TeachSession, name: String): String {
@@ -324,36 +324,36 @@ object TeachDraft {
         val apps = packages.joinToString(", ") { "\"$it\"" }
         val explained = session.steps.mapNotNull { it.explanation }
         val body = buildString {
-            appendLine("## 入口")
-            appendLine("适用：${plain(session.goal)}")
+            appendLine("## Lối vào")
+            appendLine("Áp dụng cho: ${plain(session.goal)}")
             val first = session.steps.firstOrNull { it.kind == TeachKind.Window } ?: session.steps.firstOrNull()
-            if (first != null) appendLine("[观察到] 这次从 ${first.packageName.orEmpty()} ${first.window.orEmpty()} 一带开始。只把这次真正出现过的界面当前置条件。")
-            explained.forEach { appendLine("[你说明的] $it") }
-            appendLine("来源只分三种：观察到的、你说明的、以及标明为推测的。这份额由本机按步骤整理，没有另作推测。")
-            appendLine("## 步骤")
-            if (session.steps.isEmpty()) appendLine("（没有留下可看的步骤）")
+            if (first != null) appendLine("[Đã quan sát] Lần này bắt đầu quanh ${first.packageName.orEmpty()} ${first.window.orEmpty()}. Chỉ lấy những giao diện thực sự xuất hiện lần này làm điều kiện tiên quyết.")
+            explained.forEach { appendLine("[Bạn giải thích] $it") }
+            appendLine("Nguồn chỉ có ba loại: đã quan sát được, bạn giải thích, và những điều ghi rõ là suy đoán. Bản này do máy tự sắp xếp theo các bước, không thêm suy đoán nào khác.")
+            appendLine("## Các bước")
+            if (session.steps.isEmpty()) appendLine("(Không còn bước nào xem lại được)")
             session.steps.forEachIndexed { i, step -> appendLine("${i + 1}. ${teachLine(step)}") }
-            appendLine("这些是入口线索和操作策略，不是坐标宏。")
+            appendLine("Đây là manh mối về lối vào và chiến lược thao tác, không phải macro theo tọa độ.")
             appendLine(TeachSkill.NOT_ABSENT)
-            appendLine("## 容易出错的地方")
+            appendLine("## Chỗ dễ sai")
             val thin = session.steps.filter { it.insufficient }
-            if (thin.isEmpty()) appendLine("这次留下的步骤都有界面名字或窗口。")
-            else appendLine("有 ${thin.size} 步信息不足，不能改写成点击某个坐标。")
-            if (session.truncated) appendLine("后面的操作没有逐条留下。")
+            if (thin.isEmpty()) appendLine("Các bước còn lại lần này đều có tên giao diện hoặc cửa sổ.")
+            else appendLine("Có ${thin.size} bước chưa đủ thông tin, không được viết lại thành thao tác bấm vào một tọa độ nào đó.")
+            if (session.truncated) appendLine("Các thao tác phía sau không được ghi lại từng bước.")
             appendLine(TeachSkill.NOT_ABSENT)
-            appendLine("## 怎样算办成(核实证据)")
+            appendLine("## Cách nhận biết đã xong (bằng chứng kiểm chứng)")
             val last = session.steps.lastOrNull()
-            if (last != null) appendLine("[观察到] 示范结束时停在 ${last.packageName.orEmpty()} ${last.window.orEmpty()}。")
+            if (last != null) appendLine("[Đã quan sát] Khi trình diễn kết thúc, đang dừng ở ${last.packageName.orEmpty()} ${last.window.orEmpty()}.")
             appendLine(TeachSkill.NOT_TRIAL_RUN)
-            appendLine("## 什么时候停下交给用户")
+            appendLine("## Khi nào dừng lại và giao cho người dùng")
             appendLine(TeachSkill.STOP_IF_UNMATCHED)
-            appendLine("涉及付款、发送或下单时停下来交给用户。")
+            appendLine("Khi liên quan đến thanh toán, gửi đi hoặc đặt hàng, hãy dừng lại và giao cho người dùng.")
         }
         val md = buildString {
             appendLine("---")
             appendLine("name: $name")
-            appendLine("display: ${yaml(session.goal.ifBlank { "示范" }.take(24))}")
-            appendLine("description: ${yaml(session.goal.ifBlank { "从一次人工示范记下的入口和做法" }.take(80))}")
+            appendLine("display: ${yaml(session.goal.ifBlank { "Trình diễn" }.take(24))}")
+            appendLine("description: ${yaml(session.goal.ifBlank { "Lối vào và cách làm ghi lại từ một lần trình diễn" }.take(80))}")
             appendLine("apps: [$apps]")
             appendLine("aliases: []")
             appendLine("source: ${TeachSkill.SOURCE}")
@@ -367,15 +367,15 @@ object TeachDraft {
     /** 模型稿也补上这三句，并强制出处，避免把没走到的入口写成不存在或声称试跑成功。 */
     fun ensureCaveats(md: String): String {
         var text = md
-        if (TeachSkill.NOT_ABSENT !in text) text = insertBefore(text, "怎样算办成", TeachSkill.NOT_ABSENT)
-        if (TeachSkill.NOT_TRIAL_RUN !in text) text = insertBefore(text, "什么时候停下交给用户", TeachSkill.NOT_TRIAL_RUN)
+        if (TeachSkill.NOT_ABSENT !in text) text = insertBefore(text, "Cách nhận biết đã xong", TeachSkill.NOT_ABSENT)
+        if (TeachSkill.NOT_TRIAL_RUN !in text) text = insertBefore(text, "Khi nào dừng lại và giao cho người dùng", TeachSkill.NOT_TRIAL_RUN)
         if (TeachSkill.STOP_IF_UNMATCHED !in text) text = text.trimEnd() + "\n" + TeachSkill.STOP_IF_UNMATCHED
         return text
     }
 
     fun acceptsModel(md: String): Boolean {
-        if ("[观察到]" !in md && "观察到" !in md) return false
-        if ("试跑成功" in md && TeachSkill.NOT_TRIAL_RUN !in md) return false
+        if ("[Đã quan sát]" !in md && "Đã quan sát" !in md && "[观察到]" !in md && "观察到" !in md) return false
+        if (("chạy thử thành công" in md || "试跑成功" in md) && TeachSkill.NOT_TRIAL_RUN !in md) return false
         if (SensitiveFilter.hit(md) != null) return false
         return true
     }

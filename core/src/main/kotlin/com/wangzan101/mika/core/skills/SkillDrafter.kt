@@ -235,7 +235,7 @@ class SkillDrafter(private val model: ChatModel) {
             val meta = FrontMatter.parse(s.markdown).first
             "- ${s.name}(${meta["display"] as? String ?: s.name}):${meta["description"] as? String ?: ""}"
         }
-        return "已有的个人技能(含待用户确认的草稿):" + if (lines.isEmpty()) "无" else "\n" + lines.joinToString("\n")
+        return "Các kỹ năng cá nhân đã có (gồm cả bản nháp chờ người dùng xác nhận):" + if (lines.isEmpty()) "không có" else "\n" + lines.joinToString("\n")
     }
 
 
@@ -253,16 +253,16 @@ class SkillDrafter(private val model: ChatModel) {
             .flatMap { Regex("\\d{2,}").findAll(SkillRedactor.norm(it)).map { m -> m.value }.toList() }.toSet()
 
     private fun request(input: DraftInput): String = buildString {
-        appendLine("运行编号:${input.runId}")
-        appendLine("目标:${input.goal}")
-        appendLine("最终回答:${input.answer}")
+        appendLine("Mã lần chạy:${input.runId}")
+        appendLine("Mục tiêu:${input.goal}")
+        appendLine("Câu trả lời cuối cùng:${input.answer}")
         if (input.sources.isNotEmpty()) {
-            appendLine("回答的来源:")
-            input.sources.forEach { s -> appendLine("- 第 ${s.step} 步 ${s.kind} ${s.place.orEmpty()}" + s.title?.let { "「$it」" }.orEmpty()) }
+            appendLine("Nguồn của câu trả lời:")
+            input.sources.forEach { s -> appendLine("- Bước ${s.step} ${s.kind} ${s.place.orEmpty()}" + s.title?.let { "「$it」" }.orEmpty()) }
         }
-        appendLine("动作清单:")
+        appendLine("Danh sách hành động:")
         appendLine(ActionDigest.render(ActionDigest.of(input.events, input.tools)))
-        append("可用工具:").append(input.toolNames.sorted().joinToString(", "))
+        append("Công cụ khả dụng:").append(input.toolNames.sorted().joinToString(", "))
     }
 
     companion object {
@@ -297,7 +297,7 @@ class SkillDrafter(private val model: ChatModel) {
             if (SensitiveFilter.hit(md) != null) return "sensitive"
             return null
         }
-        val SECTIONS = listOf("入口", "步骤", "容易出错的地方", "怎样算办成", "什么时候停下交给用户")
+        val SECTIONS = listOf("Lối vào", "Các bước", "Chỗ dễ sai", "Cách nhận biết đã xong", "Khi nào dừng lại và giao cho người dùng")
         /** 反引号里形如工具名的标识符。 */
         private val TOOL_MENTION = Regex("`([a-z][a-z0-9_]*)`")
         /** 文中的技能脚本路径,如 `scripts/extract_pdf.py` 或 `skills/documents/scripts/extract_pdf.py`。 */

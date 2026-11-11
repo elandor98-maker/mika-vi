@@ -56,7 +56,6 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.about.Diagnostics
 import com.wangzan101.mika.about.DiagnosticsCollector
-import com.wangzan101.mika.about.MikaLinks
 import com.wangzan101.mika.about.ReleaseInfo
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.chat.CurrentChat
@@ -557,25 +556,15 @@ private fun MikaRoot(
         Route.About -> AboutScreen(
             versionName = BuildConfig.VERSION_NAME, build = BuildConfig.GIT_HASH, beta = BuildConfig.BETA,
             update = updateState,
-            issueUrl = remember {
-                MikaLinks.issueUrl(
-                    MikaLinks.Device(
-                        Build.MANUFACTURER, Build.MODEL, Build.VERSION.RELEASE, Build.VERSION.SDK_INT,
-                        BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH,
-                    ),
-                )
-            },
             onCheck = app.updates::checkInBackground,
             autoUpdate = autoUpdate,
             onAutoUpdate = app.automaticUpdates::setEnabled,
             onOpenUrl = { openInBrowser(context, it) },
-            onOpenLicense = { nav.push(Route.License) },
             onBack = back,
             diagnostics = {
                 Diagnostics.render(DiagnosticsCollector.collect(context, status))
             },
         )
-        Route.License -> LicensesScreen(onBack = back)
         Route.Browser -> BrowserScreen(remember { UserBrowser.of(context) }, onBack = back)
         Route.Files -> FileLibraryScreen(app.chat, filesConversation, filesFromDrawer, onBack = back, onAdded = { id ->
             app.chat.openConversation(id)

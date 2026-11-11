@@ -27,8 +27,8 @@ object AboutCopy {
     val FEEDBACK: String get() = tr(R.string.about_feedback)
     val FEEDBACK_SUB: String get() = tr(R.string.about_feedback_sub)
     val FEEDBACK_SHEET_SUB: String get() = tr(R.string.about_feedback_sheet_sub)
-    val FEEDBACK_GITHUB: String get() = tr(R.string.about_feedback_github)
-    val FEEDBACK_GITHUB_SUB: String get() = tr(R.string.about_feedback_github_sub)
+    val FEEDBACK_TELEGRAM: String get() = tr(R.string.about_feedback_telegram)
+    val FEEDBACK_TELEGRAM_SUB: String get() = tr(R.string.about_feedback_telegram_sub)
 
     val DIAGNOSTICS: String get() = tr(R.string.diagnostics_copy)
     val DIAGNOSTICS_SUB: String get() = tr(R.string.diagnostics_copy_sub)
@@ -41,13 +41,8 @@ object AboutCopy {
 
     val REPO: String get() = tr(R.string.about_repo)
     val REPO_SUB: String get() = tr(R.string.about_repo_sub, MikaLinks.REPO_LABEL)
-    val GUIDE: String get() = tr(R.string.about_guide)
-    val GUIDE_SUB: String get() = tr(R.string.about_guide_sub)
 
     val DATA_NOTE: String get() = tr(R.string.about_data_note)
-    val LICENSE_LINK: String get() = tr(R.string.about_license_link)
-    val AUTHOR: String get() = tr(R.string.about_author)
-    val LICENSE_TITLE: String get() = tr(R.string.about_license_title)
 
     val UPDATE_DOWNLOAD: String get() = tr(R.string.about_update_download)
     val UPDATE_LATER: String get() = tr(R.string.about_update_later)

@@ -372,7 +372,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         val sh = shell ?: return CheckOutcome.fail("no helper", Advice.SetUpPhoneControl)
         val before = mainBefore ?: return CheckOutcome.fail("main screen was not readable at the start", Advice.Error)
         sampleMain(sh, "end")
-        val who = if (withContext(Dispatchers.IO) { runCatching { sh.packageOfTask(before) }.getOrNull() } == app.packageName) "Mika" else "another app"
+        val who = if (withContext(Dispatchers.IO) { runCatching { sh.packageOfTask(before) }.getOrNull() } == app.packageName) "Phòng AI" else "another app"
         return if (mainChanged.isEmpty()) CheckOutcome.pass("top task unchanged ($who stayed on top)")
         else CheckOutcome.fail("top task changed during: ${mainChanged.joinToString()}", Advice.MainScreenChanged)
     }
@@ -616,8 +616,8 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         const val LIST = "selfcheck_list"
         const val TITLE = "selfcheck_title"
         val EXPECTED = listOf(TITLE, COUNT, BUTTON, INPUT, TICK, LIST)
-        const val ASCII = "Mika 123"
-        const val CHINESE = "你好米卡"
+        const val ASCII = "PhongAI 123"
+        const val CHINESE = "你好"
         const val SENTINEL = 987_654_321
         /** 读屏一项等自检页出现最多这么久。 */
         const val PAGE_WAIT_MS = 5_000L

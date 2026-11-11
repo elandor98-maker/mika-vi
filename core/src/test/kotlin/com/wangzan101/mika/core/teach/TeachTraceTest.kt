@@ -167,7 +167,7 @@ class TeachTraceTest {
         assertTrue(skill.markdown.contains(TeachSkill.NOT_TRIAL_RUN))
         assertTrue(skill.markdown.contains(TeachSkill.NOT_ABSENT))
         assertTrue(skill.markdown.contains(TeachSkill.STOP_IF_UNMATCHED))
-        assertTrue(skill.markdown.contains("[观察到]"))
+        assertTrue(skill.markdown.contains("[Đã quan sát]"))
         assertFalse(skill.markdown.contains("试跑成功了"))
         assertNull(SkillDrafter.validate(skill.markdown, emptySet(), null))
         val request = model.requests.single().joinToString { it.parts.filterIsInstance<Part.Text>().joinToString { p -> p.text } }

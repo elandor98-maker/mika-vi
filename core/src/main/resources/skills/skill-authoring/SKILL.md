@@ -1,7 +1,7 @@
 ---
 name: skill-authoring
-display: 写技能
-description: 用户要新建、导入或修改一份技能(做一类事的固定做法)时用:怎么写、怎么查重、怎么存下
+display: Viết kỹ năng
+description: Dùng khi người dùng muốn tạo mới, nhập hoặc sửa một kỹ năng (cách làm cố định cho một loại việc): viết thế nào, kiểm tra trùng thế nào, lưu ra sao
 aliases: ["创建技能", "新建技能", "写个技能", "保存技能", "导入技能", "改技能", "skill"]
 terms: ["技能", "做法", "流程", "步骤", "模板", "以后都这样做", "存成技能", "导入", "改写"]
 ---
@@ -28,24 +28,24 @@ terms: ["技能", "做法", "流程", "步骤", "模板", "以后都这样做", 
 ```
 ---
 name: order-coffee
-display: 点咖啡
+display: Đặt cà phê
 description: 用户要点一杯咖啡外送或自取时用
 aliases: ["点咖啡", "买杯咖啡"]
 ---
-## 入口
-## 步骤
-## 容易出错的地方
-## 怎样算办成
-## 什么时候停下交给用户
+## Lối vào
+## Các bước
+## Chỗ dễ sai
+## Cách nhận biết đã xong
+## Khi nào dừng lại và giao cho người dùng
 ```
 
-- name 用小写英文、数字和连字符,说清是哪类事;display 是简短中文名。
-- description 一句话写「什么时候用」,把用户可能的说法写进 aliases:以后有没有被用上全靠这两处。
-- 入口写从哪儿开始(哪个 App、网站或搜索);步骤写编号的短句,一步一个动作,写按钮、页面的名字,不写坐标。
-- 每次会变的东西(人名、金额、地址、要发的文字)写成 `<参数>` 或「用户指定的联系人」,不写死。
-- 容易出错的地方写会走偏的点和绕过的办法;怎样算办成写办完后在哪儿能看到结果;什么时候停下写需要用户登录、付款、确认或做选择的时刻。
-- 反引号只用来包工具名,App 名、按钮文字不要用反引号。不写密码、验证码、卡号和别人的私人信息。
-- 宁短勿长:模型自己会的不用写,只写这类事特有的做法和坑。
+- name dùng chữ thường tiếng Anh, số và dấu gạch nối, nói rõ là loại việc gì; display là tên ngắn bằng tiếng Việt.
+- description viết một câu «khi nào thì dùng», đưa các cách nói có thể có của người dùng vào aliases: sau này kỹ năng có được dùng tới hay không là nhờ hai chỗ này.
+- Lối vào viết bắt đầu từ đâu (App nào, trang web nào hoặc tìm kiếm); Các bước viết câu ngắn có đánh số, mỗi bước một hành động, ghi tên nút và tên trang, không ghi tọa độ.
+- Những thứ mỗi lần một khác (tên người, số tiền, địa chỉ, đoạn chữ cần gửi) viết thành `<tham số>` hoặc «người liên hệ do người dùng chỉ định», không ghi chết.
+- Chỗ dễ sai viết những điểm dễ đi lệch và cách né; Cách nhận biết đã xong viết làm xong thì nhìn thấy kết quả ở đâu; Khi nào dừng lại viết những lúc cần người dùng đăng nhập, thanh toán, xác nhận hoặc lựa chọn.
+- Dấu backtick chỉ dùng để bọc tên công cụ; tên App, chữ trên nút thì không dùng backtick. Không viết mật khẩu, mã xác minh, số thẻ và thông tin riêng tư của người khác.
+- Thà ngắn còn hơn dài: những gì model tự biết rồi thì khỏi viết, chỉ viết cách làm riêng của loại việc này và những chỗ dễ vấp.
 
 ## 导入用户贴来的内容
 
@@ -54,10 +54,10 @@ aliases: ["点咖啡", "买杯咖啡"]
 ## 存下和告诉用户
 
 1. 用 `skill_save` 存:markdown 是整份文档,quote 抄用户这次要你建或改技能的原话。
-2. 结果 ok 才算存下。照结果告诉用户:技能叫什么、是新建还是改了已有的,在「设置 › 记忆与技能」里能看到,下次遇到这类事会先试用它。
+2. 结果 ok 才算存下。照结果告诉用户:技能叫什么、是新建还是改了已有的,在«Cài đặt › Ký ức & dữ liệu»里能看到,下次遇到这类事会先试用它。
 3. 结果失败时照原因改了再存一次;还是不行就如实说没存上、为什么,不要说已经建好。
-4. 改名、删除这里做不了:请用户在「设置 › 记忆与技能」里删掉旧的;要换名字就按新名字另存一份,再请用户删掉旧的。
+4. 改名、删除这里做不了:请用户在«Cài đặt › Ký ức & dữ liệu»里删掉旧的;要换名字就按新名字另存一份,再请用户删掉旧的。
 
-## 怎样算办成
+## Cách nhận biết đã xong
 
 `skill_save` 返回 ok,结果里的名字就是要存的那份;回答里说的名字、新建还是修改,和结果一致。

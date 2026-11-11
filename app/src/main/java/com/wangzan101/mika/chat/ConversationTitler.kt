@@ -17,7 +17,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 object ConversationTitler {
     const val TIMEOUT_MS = 8_000L
-    private const val MAX_TITLE = 16
+    private const val MAX_TITLE = 40
     private const val MAX_INPUT = 400
 
     /**
@@ -61,7 +61,7 @@ object ConversationTitler {
     /** 回复里第一行有字的当标题:去掉两头的引号和结尾标点、「标题:」前缀,过长截断;空的为 null。 */
     fun clean(raw: String): String? {
         var t = raw.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: return null
-        t = t.replace(Regex("^(标题|title)\\s*[:：]\\s*", RegexOption.IGNORE_CASE), "")
+        t = t.replace(Regex("^(标题|title|tiêu đề)\\s*[:：]\\s*", RegexOption.IGNORE_CASE), "")
         t = t.trim { it in WRAP || it.isWhitespace() }.trimEnd { it in TAIL }.trim { it in WRAP || it.isWhitespace() }
         return t.take(MAX_TITLE).takeIf(String::isNotBlank)
     }

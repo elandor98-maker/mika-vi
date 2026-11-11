@@ -14,6 +14,9 @@ object MikaLinks {
     /** 检查更新只问 GitHub 发布页(不登录,每小时有次数限制)。 */
     const val LATEST_RELEASE_API = "https://api.github.com/repos/elandor98-maker/mika-vi/releases/latest"
 
+    /** Kênh liên hệ duy nhất của Phòng AI: Telegram của chủ app. */
+    const val TELEGRAM = "https://t.me/tingting89789"
+
     /** 反馈时预先填进问题模板的设备与版本信息。 */
     data class Device(
         val manufacturer: String,

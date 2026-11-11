@@ -94,17 +94,17 @@ object HelperHandoff {
             |  exit 1
             |fi
             |if [ ! -f ${quote(apkPath)} ]; then
-            |  echo "Mika was updated or reinstalled. Open Mika once, then run this command again."
+            |  echo "Phòng AI was updated or reinstalled. Open Phòng AI once, then run this command again."
             |  exit 1
             |fi
             |n=${quote(nonce)}
             |(echo "${'$'}n" | CLASSPATH=${quote(apkPath)} nohup setsid app_process /system/bin --nice-name=$name $HELPER_CLASS ${quote(packageName)} $appUid ${quote(certPin)} >/dev/null 2>&1 &)
             |sleep 2
             |if pidof $name >/dev/null 2>&1; then
-            |  echo "Mika helper starting... Open Mika to confirm phone control is ready."
+            |  echo "Phòng AI helper starting... Open Phòng AI to confirm phone control is ready."
             |  echo "On most phones it keeps running after you unplug the cable. After a phone restart, or if phone control stopped after unplugging, plug in and run this command again."
             |else
-            |  echo "Mika helper did not start. Open Mika once, then run this command again."
+            |  echo "Phòng AI helper did not start. Open Phòng AI once, then run this command again."
             |  exit 1
             |fi
             |""".trimMargin()
@@ -133,9 +133,9 @@ object HelperHandoff {
             |#!/system/bin/sh
             |# Written by Mika. The phone helper is connected, so this file holds no start code.
             |if pidof $name >/dev/null 2>&1; then
-            |  echo "Mika helper is already running. Nothing to do."
+            |  echo "Phòng AI helper is already running. Nothing to do."
             |else
-            |  echo "Mika helper is not running. Open Mika once, then run this command again: ${usbCommand(scriptPath)}"
+            |  echo "Phòng AI helper is not running. Open Phòng AI once, then run this command again: ${usbCommand(scriptPath)}"
             |  exit 1
             |fi
             |""".trimMargin()

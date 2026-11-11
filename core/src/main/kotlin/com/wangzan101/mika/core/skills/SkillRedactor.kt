@@ -8,7 +8,7 @@ import com.wangzan101.mika.core.memory.NumberText
  * 所有文字先统一写法(NFKC;中文数字、分隔开的数字并成一串阿拉伯数字),比较与替换按同一口径。
  */
 object SkillRedactor {
-    const val PLACEHOLDER = "<参数>"
+    const val PLACEHOLDER = "<tham số>"
 
     private val QUOTED = listOf("「", "」", "『", "』", "“", "”", "\"", "\"", "‘", "’", "《", "》")
         .chunked(2).map { (open, close) -> Regex(Regex.escape(open) + "([^" + Regex.escape(close) + "\\n]+)" + Regex.escape(close)) }

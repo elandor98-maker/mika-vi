@@ -20,7 +20,7 @@ class VisionService(private val model: ChatModel, val ops: ImageOps) {
         val parts = listOf(Part.Text(text)) + images.map { ModelImage.part(it, ops) }
         val reply = model.complete(system, listOf(Message(Role.User, parts, Author.Mika)), emptyList())
         val answer = reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }
-        if (answer.isBlank()) throw ModelError.BadResponse("视觉模型没有给出回答")
+        if (answer.isBlank()) throw ModelError.BadResponse("Mô hình thị giác không trả lời")
         return answer
     }
 }

@@ -1,26 +1,26 @@
-你把同一次人工示范整理成一份待确认的技能。你看不到屏幕，只能根据下面的目标和步骤摘要来写。摘要里没有输入的原文，也没有截图。
+Bạn ghi lại một lần trình diễn do chính người dùng thực hiện thành một kỹ năng chờ xác nhận. Bạn không thấy màn hình, chỉ viết dựa trên mục tiêu và bản tóm tắt các bước dưới đây. Bản tóm tắt không có nguyên văn những gì đã nhập, cũng không có ảnh chụp màn hình.
 
-只输出一份 Markdown，不要输出别的文字。格式：
+Chỉ xuất ra đúng một tài liệu Markdown, không xuất thêm bất kỳ chữ nào khác. Định dạng:
 
 ---
-name: <小写英文和连字符>
-display: <简短名称>
-description: <什么情况下用这份技能>
-apps: [<这次出现过的包名>]
-aliases: [<用户可能怎么说这件事>]
+name: <chữ thường tiếng Anh và dấu gạch ngang>
+display: <tên ngắn bằng tiếng Việt>
+description: <dùng kỹ năng này trong trường hợp nào>
+apps: [<tên gói các App xuất hiện lần này>]
+aliases: [<người dùng có thể gọi việc này thế nào>]
 source: demonstrated
 ---
-## 入口
-## 步骤
-## 容易出错的地方
-## 怎样算办成(核实证据)
-## 什么时候停下交给用户
+## Lối vào
+## Các bước
+## Chỗ dễ sai
+## Cách nhận biết đã xong (bằng chứng kiểm chứng)
+## Khi nào dừng lại và giao cho người dùng
 
-要求：
-- 五个小节都要有，标题照抄。全文不超过 3000 字。
-- 写的是难找的入口和操作策略，不是坐标，也不是逐步宏。
-- 每条事实标明来源：观察到的、你说明的、推测。摘要里没有的内容只能写成推测，而且要少。
-- 这次没走到的入口不能写成不存在。
-- 不要写密码、验证码、卡号，也不要声称 Mika 已经试跑成功。
-- 「什么时候停下交给用户」要写明：当前界面看不出入口或前置条件时，停止套用，改用平常的查看和询问。付款、发送、下单交给用户。
-- 不要用反引号包工具名。
+Yêu cầu:
+- Cả năm mục đều phải có, tiêu đề chép y nguyên. Toàn văn không quá 3000 ký tự.
+- Viết về những lối vào khó tìm và chiến lược thao tác, không phải tọa độ, cũng không phải macro từng bước một.
+- Mỗi thông tin phải ghi rõ nguồn: đã quan sát được, bạn giải thích, hay suy đoán. Nội dung không có trong bản tóm tắt chỉ được viết dưới dạng suy đoán, và càng ít càng tốt.
+- Lối vào mà lần này chưa đi tới thì không được viết là nó không tồn tại.
+- Không viết mật khẩu, mã xác thực, số thẻ, và không được tuyên bố Phòng AI đã chạy thử thành công.
+- Mục «Khi nào dừng lại và giao cho người dùng» phải viết rõ: khi giao diện hiện tại không thấy lối vào hoặc điều kiện tiên quyết, hãy dừng áp dụng kỹ năng này và quay lại cách xem xét và hỏi thông thường. Việc thanh toán, gửi đi, đặt hàng giao cho người dùng.
+- Không dùng backtick để bọc tên công cụ.

@@ -1,13 +1,13 @@
 App:{{app}}
-结局:{{outcome}}
-目标:{{goal}}
-回答或没办成的原因:{{said}}
+Kết cục:{{outcome}}
+Mục tiêu:{{goal}}
+Câu trả lời hoặc lý do chưa làm xong:{{said}}
 
-这个 App 现有的说明(空着就是没有):
+Phần mô tả hiện có của App này (để trống nghĩa là không có):
 {{built_in}}
 
-已有的补充(空着就是没有):
+Phần bổ sung đã có (để trống nghĩa là không có):
 {{current}}
 
-这次在这个 App 里的动作:
+Các hành động trong App ở lần này:
 {{actions}}

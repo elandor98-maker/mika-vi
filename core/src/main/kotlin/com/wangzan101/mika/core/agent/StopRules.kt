@@ -82,7 +82,7 @@ internal fun userReason(e: ModelError): String = when (e) {
     is ModelError.ModelNotAvailable ->
         "Mô hình 「${e.model.ifEmpty { "mô hình hiện tại" }}」 tài khoản này chưa được mở quyền dùng hoặc không có quyền dùng. Vào Cài đặt › Mô hình để đổi mô hình khác, hoặc mở quyền tại trang quản lý của nhà cung cấp."
     is ModelError.ToolsUnsupported ->
-        "Mô hình 「${e.model.ifEmpty { "mô hình hiện tại" }}」 không hỗ trợ gọi công cụ, mà Mika cần công cụ để làm việc. Vào Cài đặt › Mô hình để đổi sang mô hình có hỗ trợ gọi công cụ."
+        "Mô hình 「${e.model.ifEmpty { "mô hình hiện tại" }}」 không hỗ trợ gọi công cụ, mà Phòng AI cần công cụ để làm việc. Vào Cài đặt › Mô hình để đổi sang mô hình có hỗ trợ gọi công cụ."
     is ModelError.ContextTooLong -> "Nội dung hội thoại đã vượt quá độ dài ngữ cảnh của mô hình, hãy đổi sang mô hình có ngữ cảnh dài hơn, hoặc chia nhỏ tác vụ."
     is ModelError.ContentRefused -> "Mô hình từ chối xử lý nội dung này, hãy điều chỉnh mô tả tác vụ hoặc đổi mô hình khác."
     is ModelError.ReasoningEffortRejected ->

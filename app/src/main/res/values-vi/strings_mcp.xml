@@ -43,7 +43,7 @@
     <string name="mcp_cli_install">1. Thiết lập máy tính</string>
     <string name="mcp_cli_install_sub">Gửi hướng dẫn cài đặt cho AI trên máy tính của bạn, hoặc tự làm theo trên máy tính.</string>
     <string name="mcp_copy_install">Sao chép hướng dẫn cài đặt</string>
-    <string name="mcp_cli_install_prompt">Làm theo https://github.com/wangzan101/Mika/blob/main/docs/agent-quickstart.en.md để cài Mika CLI hoặc Skill cho agent này. Dùng cách kết nối đã chọn trên điện thoại: USB dùng ADB đã ủy quyền; Wi-Fi/VPN riêng dùng địa chỉ HTTP và tệp token riêng tư. Chạy connect để kiểm tra kết nối. Nếu chỉ có Skill, dùng script đi kèm của nó. Không gửi tác vụ điện thoại và không in token trong cuộc trò chuyện.</string>
+    <string name="mcp_cli_install_prompt">Làm theo https://github.com/wangzan101/Mika/blob/main/docs/agent-quickstart.en.md để cài CLI hoặc Skill cho agent này. Dùng cách kết nối đã chọn trên điện thoại: USB dùng ADB đã ủy quyền; Wi-Fi/VPN riêng dùng địa chỉ HTTP và tệp token riêng tư. Chạy connect để kiểm tra kết nối. Nếu chỉ có Skill, dùng script đi kèm của nó. Không gửi tác vụ điện thoại và không in token trong cuộc trò chuyện.</string>
     <string name="mcp_cli_connect">2. Kết nối điện thoại</string>
     <string name="mcp_cli_connect_sub">Chạy trên máy tính qua USB hoặc gỡ lỗi qua Wi-Fi đã ghép đôi. connect kiểm tra kết nối. Nếu chỉ có Skill, hãy yêu cầu agent chạy client đi kèm của nó.</string>
     <string name="mcp_copy_command">Sao chép lệnh</string>
@@ -56,7 +56,7 @@
     <string name="mcp_usb_client">3. Cấu hình MCP client</string>
     <string name="mcp_usb_client_sub">Lệnh khởi động in ra địa chỉ và token trên máy tính. Thêm chúng vào client của bạn và kiểm tra xem thời gian yêu cầu ở trên có cập nhật không.</string>
     <string name="mcp_copy_instructions">Sao chép hướng dẫn thiết lập</string>
-    <string name="mcp_usb_client_instructions">Thêm một máy chủ MCP Streamable HTTP tại http://127.0.0.1:%1$d/mcp trên máy tính này. Đặt header Authorization thành Bearer theo sau là token được lệnh khởi động của Mika in ra. Không in token trong cuộc trò chuyện. Kết nối hoặc làm mới danh sách công cụ và kiểm tra xem thời gian yêu cầu trên điện thoại có cập nhật không. Hướng dẫn: https://github.com/wangzan101/Mika/blob/main/docs/mcp.en.md</string>
+    <string name="mcp_usb_client_instructions">Thêm một máy chủ MCP Streamable HTTP tại http://127.0.0.1:%1$d/mcp trên máy tính này. Đặt header Authorization thành Bearer theo sau là token được lệnh khởi động in ra. Không in token trong cuộc trò chuyện. Kết nối hoặc làm mới danh sách công cụ và kiểm tra xem thời gian yêu cầu trên điện thoại có cập nhật không. Hướng dẫn: https://github.com/wangzan101/Mika/blob/main/docs/mcp.en.md</string>
     <string name="mcp_network_enable">Cho phép kết nối mạng này</string>
     <string name="mcp_network_enable_action">Bật truy cập mạng</string>
     <string name="mcp_network_address_step">1. Chọn địa chỉ có thể tới được</string>

@@ -40,11 +40,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.R
 import com.wangzan101.mika.about.CheckStatus
@@ -79,10 +76,8 @@ fun AboutScreen(
     build: String,
     beta: Boolean,
     update: UpdateState,
-    issueUrl: String,
     onCheck: () -> Unit,
     onOpenUrl: (String) -> Unit,
-    onOpenLicense: () -> Unit,
     onBack: () -> Unit,
     diagnostics: () -> String = { "" },
     autoUpdate: Boolean = false,
@@ -136,7 +131,6 @@ fun AboutScreen(
         }
         GroupCard {
             ListRow(MikaIcons.Code, AboutCopy.REPO, AboutCopy.REPO_SUB, first = true, onClick = { onOpenUrl(MikaLinks.REPO) }) { ExternalMark() }
-            ListRow(MikaIcons.Book, AboutCopy.GUIDE, AboutCopy.GUIDE_SUB, onClick = { onOpenUrl(MikaLinks.README) }) { ExternalMark() }
         }
 
         Row(
@@ -147,20 +141,6 @@ fun AboutScreen(
             Text(AboutCopy.DATA_NOTE, style = MikaType.Caption, color = c.ink2)
         }
 
-        Column(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                buildAnnotatedString {
-                    val (before, after) = stringResource(R.string.about_released_under).split("%1\$s").let { it[0] to it.getOrElse(1) { "" } }
-                    append(before)
-                    withStyle(SpanStyle(color = c.accent)) { append(AboutCopy.LICENSE_LINK) }
-                    append(after)
-                },
-                Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onOpenLicense).padding(horizontal = 6.dp, vertical = 2.dp)
-                    .testTag("about-license"),
-                style = MikaType.Hint, color = c.ink3, textAlign = TextAlign.Center,
-            )
-            Text(AboutCopy.AUTHOR, Modifier.padding(top = 2.dp), style = MikaType.Hint, color = c.ink3)
-        }
     }
 
     val close = { sheet = null }
@@ -170,7 +150,7 @@ fun AboutScreen(
         }
         AboutSheet.Changelog -> ChangelogSheet(update.latest, onOpenAll = { close(); onOpenUrl(MikaLinks.RELEASES) }, onDismiss = close)
         AboutSheet.Feedback -> FeedbackSheet(
-            onGitHub = { close(); onOpenUrl(issueUrl) },
+            onTelegram = { close(); onOpenUrl(MikaLinks.TELEGRAM) },
             onDiagnostics = { sheet = AboutSheet.Diagnostics },
             onDismiss = close,
         )
@@ -295,10 +275,10 @@ private fun ChangelogSheet(latest: ReleaseInfo?, onOpenAll: () -> Unit, onDismis
 }
 
 @Composable
-private fun FeedbackSheet(onGitHub: () -> Unit, onDiagnostics: () -> Unit, onDismiss: () -> Unit) {
+private fun FeedbackSheet(onTelegram: () -> Unit, onDiagnostics: () -> Unit, onDismiss: () -> Unit) {
     AboutSheetFrame(AboutCopy.FEEDBACK, AboutCopy.FEEDBACK_SHEET_SUB, "feedback-sheet", onDismiss) {
         Column(Modifier.padding(top = 6.dp)) {
-            FeedbackOption(MikaIcons.Code, AboutCopy.FEEDBACK_GITHUB, AboutCopy.FEEDBACK_GITHUB_SUB, first = true, onGitHub)
+            FeedbackOption(MikaIcons.Message, AboutCopy.FEEDBACK_TELEGRAM, AboutCopy.FEEDBACK_TELEGRAM_SUB, first = true, onTelegram)
             FeedbackOption(MikaIcons.Copy, AboutCopy.DIAGNOSTICS, AboutCopy.DIAGNOSTICS_SUB, first = false, onDiagnostics)
         }
     }

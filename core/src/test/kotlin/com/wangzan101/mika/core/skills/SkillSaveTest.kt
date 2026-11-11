@@ -35,15 +35,15 @@ class SkillSaveTest {
         |description: 用户要点咖啡时用
         |aliases: ["点咖啡"]
         |---
-        |## 入口
+        |## Lối vào
         |打开咖啡 App。
-        |## 步骤
+        |## Các bước
         |$steps
-        |## 容易出错的地方
+        |## Chỗ dễ sai
         |优惠券要先领再用。
-        |## 怎样算办成
+        |## Cách nhận biết đã xong
         |订单页能看到这一单。
-        |## 什么时候停下交给用户
+        |## Khi nào dừng lại và giao cho người dùng
         |付款前交给用户。
         |""".trimMargin()
 
@@ -120,9 +120,9 @@ class SkillSaveTest {
         val s = setup()
         assertEquals("invalid_name", s.tools.call("skill_save", save(md("Order Coffee"))).s("error"))
         assertEquals("missing_description", s.tools.call("skill_save", save(md().replace("description: 用户要点咖啡时用\n", ""))).s("error"))
-        val noSection = s.tools.call("skill_save", save(md().replace("## 怎样算办成\n", "")))
+        val noSection = s.tools.call("skill_save", save(md().replace("## Cách nhận biết đã xong\n", "")))
         assertEquals("missing_section", noSection.s("error"))
-        assertTrue("## 怎样算办成" in noSection.s("message"))
+        assertTrue("## Cách nhận biết đã xong" in noSection.s("message"))
         assertEquals("too_long", s.tools.call("skill_save", save(md(steps = "1. " + "很长".repeat(SkillDrafter.MAX_CHARS / 2)))).s("error"))
         assertEquals("unknown_tool", s.tools.call("skill_save", save(md(steps = "1. 用 `press_order_button` 下单"))).s("error"))
         assertTrue(s.store.list().isEmpty())
