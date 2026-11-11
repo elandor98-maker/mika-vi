@@ -9,8 +9,13 @@ package com.wangzan101.mika.settings
  * (xem [ProviderStore.modelFor] / [FailoverChatModel]).
  *
  * Nhận diện chỉ dựa vào tiền tố mà các hãng công khai dùng cho key của họ; không có tiền tố nào
- * khớp thì trả về null để giao diện nói rõ «không nhận ra hãng» chứ không đoán bừa.
+ * khớp thì trả về null — lúc đó giao diện sẽ THỬ gọi thật từng hãng để nhận diện (xem
+ * ModelSetupViewModel.submitPasteKey), vẫn không ra mới báo «không nhận ra hãng», không đoán bừa.
  * Thứ tự kiểm tra quan trọng: tiền tố dài/đặc thù phải xét trước tiền tố chung (`sk-or-` trước `sk-`).
+ * Key Gemini có HAI đời: đời cũ bắt đầu `AIza…`; từ 2026-05-28 AI Studio chỉ phát đời mới
+ * «key uỷ quyền» bắt đầu `AQ.` — cả hai đều là Gemini. Key đời mới vẫn gửi bằng header
+ * `x-goog-api-key` như đời cũ (đã kiểm chứng chạy thật trên máy người dùng 2026-11-11 qua
+ * luồng nối cổ điển: liệt kê model + trò chuyện đều được) — KHÔNG đổi sang Bearer.
  */
 object PasteKey {
     /** Key đã cắt khoảng trắng thuộc hãng nào (mẫu có sẵn trong [ProviderPresets.all]); nhận không ra thì null. */
@@ -21,6 +26,7 @@ object PasteKey {
             k.startsWith("gsk_") -> byLabel("Groq")
             k.startsWith("sk-or-") -> byLabel("OpenRouter")
             k.startsWith("AIza") -> byLabel("Gemini")
+            k.startsWith("AQ.") -> byLabel("Gemini")
             k.startsWith("csk-") -> byLabel("Cerebras")
             // `sk-` chung: gán cho mẫu OpenAI (mẫu có sẵn trong danh sách); hãng khác cũng dùng
             // tiền tố này (Anthropic là sk-ant-, không khớp) — theo đúng chỉ định của bản v3.3.

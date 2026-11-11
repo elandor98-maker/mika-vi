@@ -55,8 +55,25 @@ base64 -d signing/phongai-icon.b64 > app/src/main/res/drawable-nodpi/phongai_ico
 set -o pipefail
 # gradlew day len GitHub qua API bi mat quyen chay (mode 100644), nen cap quyen o day.
 chmod +x gradlew
-./gradlew :app:assemblePerf --console=plain 2>&1 | tee build-log.txt
-BUILD_RC=${PIPESTATUS[0]}
+# --- 4a. Chay test don vi cua cac lop vua sua (v3.3.1) TRUOC khi dong goi -----
+# Chi chay cac lop test cham toi ban sua nay (--tests loc theo lop; loc khong
+# khop o mot task se lam task do THAT BAI nen phai tach :core va :app rieng).
+# Test hong -> ghi nhan BUILD_RC, BO QUA buoc dong goi; muc 5 van phat hanh
+# release THAT BAI kem log nhu thuong. Luu y: --tests chi loc luc CHAY, toan bo
+# ma nguon test van duoc bien dich.
+./gradlew :core:test --tests "com.wangzan101.mika.core.model.ModelHttpTest" --tests "com.wangzan101.mika.core.model.GeminiModelTest" --tests "com.wangzan101.mika.core.model.ModelCatalogTest" --tests "com.wangzan101.mika.core.agent.QuickChatTest" --tests "com.wangzan101.mika.core.agent.RetryWaitNoteTest" --tests "com.wangzan101.mika.core.model.OpenAiCompatModelTest" --console=plain 2>&1 | tee build-log.txt
+TEST_RC=${PIPESTATUS[0]}
+if [ "$TEST_RC" = 0 ]; then
+  ./gradlew :app:testPerfUnitTest --tests "com.wangzan101.mika.settings.ProviderStoreTest" --tests "com.wangzan101.mika.settings.PasteKeyTest" --tests "com.wangzan101.mika.settings.ModelOptionsTest" --tests "com.wangzan101.mika.memory.SeedPackTest" --console=plain 2>&1 | tee -a build-log.txt
+  TEST_RC=${PIPESTATUS[0]}
+fi
+if [ "$TEST_RC" != 0 ]; then
+  echo "TEST DON VI THAT BAI (rc=$TEST_RC) - bo qua buoc dong goi APK"
+  BUILD_RC=$TEST_RC
+else
+  ./gradlew :app:assemblePerf --console=plain 2>&1 | tee -a build-log.txt
+  BUILD_RC=${PIPESTATUS[0]}
+fi
 
 # --- 5. Thu thap ket qua va phat hanh Release ---------------------------------
 mkdir -p out

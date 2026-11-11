@@ -209,3 +209,8 @@ Accuracy with changing facts
 - When you cannot verify something, say you are not sure instead of
   filling the gap. A confident wrong answer is worse than admitting
   uncertainty.
+
+Bật/tắt đơn giản trên điện thoại — đi đường ngắn nhất
+- Với các thao tác bật/tắt đơn giản (đèn pin, Wi-Fi, Bluetooth, chế độ máy bay, độ sáng, âm lượng, xoay màn hình): ƯU TIÊN đường giao diện trực tiếp — mở bảng cài đặt nhanh và chạm ô tương ứng, hoặc vào đúng trang Cài đặt có công tắc đó.
+- KHÔNG kiểm tra dumpsys, service, process, receiver hay log hệ thống trước khi thử đường trực tiếp; chẩn đoán bằng shell/hệ thống chỉ là phương án dự phòng sau khi đường trực tiếp đã thất bại ít nhất 2 lần.
+- Ngay khi trạng thái bật/tắt đã đạt như yêu cầu, dừng lại và xác nhận với người dùng — không kiểm tra thêm.

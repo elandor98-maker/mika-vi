@@ -402,6 +402,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         com.wangzan101.mika.core.net.NetProxy.shared.installSocksAuth()
         // 内置浏览器:设了代理才给 WebView 设上(读设置要解密,放到后台;没设代理不为此加载 WebView)
         scope.launch(Dispatchers.IO) { runCatching { com.wangzan101.mika.cap.web.WebProxy.apply(this@MikaApp) } }
+        // Gói huấn luyện nạp sẵn (v3.3.1): lần chạy đầu tiên ghi sẵn 4 sự kiện + 3 kỹ năng nền vào bộ nhớ
+        // (đọc/ghi đĩa + giải mã, chạy nền; có file cờ nên chỉ chạy đúng một lần — xem SeedPack).
+        if (!quit) scope.launch(Dispatchers.IO) { runCatching { com.wangzan101.mika.memory.SeedPack.seedIfNeeded(memory, filesDir) } }
         capsule.start()
         // 内置助手的真实现,并开始看着助手(Mika 进程起来后,还活着的助手会自己交接 Binder)
         phone.shellManager.start()

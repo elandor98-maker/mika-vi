@@ -6,8 +6,8 @@
     <string name="chat_greeting_evening">Chào buổi tối</string>
     <string name="chat_greeting_night">Thức khuya</string>
     <string name="chat_empty_prompt">Phòng AI nên làm gì?</string>
-    <string name="chat_example_github_star">Mở https://github.com/wangzan101/mika và tặng sao cho dự án.</string>
-    <string name="chat_example_follow">Mở X, tìm Wang Zan (@wangzan101) và theo dõi tài khoản.</string>
+    <string name="chat_example_github_star">Mở Shopee và tìm các ưu đãi hoàn hoa hồng hôm nay cho tôi.</string>
+    <string name="chat_example_follow">Mở Telegram, tìm @tingting89789 và mở cuộc trò chuyện.</string>
     <string name="chat_example_group_summary">Mở WhatsApp và tóm tắt các tin nhắn chưa đọc hôm nay, làm nổi bật những tin cần tôi trả lời.</string>
     <string name="chat_example_alarms">Đặt báo thức lúc 9:40, 9:50 và 10:00 sáng mai.</string>
     <string name="chat_example_replace_title">Thay thế bản nháp hiện tại?</string>

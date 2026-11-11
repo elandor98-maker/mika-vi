@@ -203,7 +203,14 @@ class AgentLoop(
         tools.observer = { record { order.observed(RunEvent.Observed.of(it)) } }
     }
 
-    private val caller = ModelCaller(model, tools, router, flags, retry, ::emit, ::now, autonomous, trace)
+    private val caller = ModelCaller(model, tools, router, flags, retry, ::emit, ::now, autonomous, trace,
+        onRetryWait = {
+            // Đang chờ nhà cung cấp mở lại lượt (thử lại theo RetryPolicy): nói rõ ngay trên dòng
+            // «đang làm gì» của trạng thái Running — cả chat lẫn capsule đều lấy dòng này — để
+            // người dùng biết app đang tự chờ/thử lại chứ không treo. Bước kế tiếp tự ghi đè dòng này.
+            val cur = _state.value as? TaskState.Running
+            if (cur != null && cur.narration != RETRY_WAIT_NOTE) _state.value = cur.copy(narration = RETRY_WAIT_NOTE)
+        })
     private val intentGate = intentJudge?.let { IntentGate(it, model.takeUnless { main -> main === it }) }
     private val routeMatcher = routes
     /** 本任务的上下文生成器(外壳、预算、已给过的参考资料)。 */
@@ -1142,6 +1149,8 @@ class AgentLoop(
     }
 
     companion object {
+        /** Dòng trạng thái hiện khi phải chờ lâu trước lần thử lại (hết lượt nhà cung cấp): app tự thử lại, người dùng không cần bấm gì. */
+        const val RETRY_WAIT_NOTE = "Đang chờ nhà cung cấp mở lại lượt — app sẽ tự thử lại, anh không cần bấm gì"
         const val STEER_MARKER = "<user_interjection>"
         const val DEFAULT_MAX_STEPS = 60
         /** 正常任务没有固定步数截止；显式步数预算只用于评测和指定上限的子任务。 */

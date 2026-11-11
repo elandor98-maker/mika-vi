@@ -38,6 +38,8 @@ internal class ModelCaller(
     private val now: () -> Long,
     private val autonomous: Boolean = false,
     private val trace: RunTrace? = null,
+    /** Sắp phải chờ lâu trước lần thử lại (xem [RETRY_WAIT_NOTE_MIN_MS]): báo ra ngoài để giao diện nói rõ là đang chờ, không phải treo. */
+    private val onRetryWait: (Long) -> Unit = {},
 ) {
     /** 每个模型一份压缩状态:各自的上下文、各自发出的那份历史,轻量模型那次压缩不连累主模型的请求前缀。 */
     private val compressors = java.util.IdentityHashMap<ChatModel, ContextCompressor>()
@@ -226,6 +228,8 @@ internal class ModelCaller(
                 retries += 1
                 taskRetryWaitMs += wait
                 emit(RunEvent.State(now(), "model_retry", "${roleOf(using)} ${RetryPolicy.label(e)} #$retries ${wait}ms"))
+                // Chờ lâu thì báo ra ngoài: người dùng nhìn màn hình chỉ thấy «Đang làm việc» sẽ tưởng app treo
+                if (wait >= RETRY_WAIT_NOTE_MIN_MS) onRetryWait(wait)
                 // 等待中取消任务就此结束
                 delay(wait)
             }
@@ -233,6 +237,9 @@ internal class ModelCaller(
     }
 
     companion object {
+        /** Chờ thử lại từ mức này trở lên mới báo ra giao diện (chờ ngắn hơn thì chớp mắt là qua, báo chỉ thêm rối). */
+        const val RETRY_WAIT_NOTE_MIN_MS = 10_000L
+
         /** [RunEvent.ModelReply.role] 的取值;分工没起作用时为 null。 */
         const val ROLE_MAIN = "main"
         const val ROLE_LIGHT = "light"

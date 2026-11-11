@@ -14,6 +14,16 @@ class PasteKeyTest {
         assertEquals("OpenAI", PasteKey.presetFor("sk-proj-abc")?.label)
     }
 
+    /** Key Gemini đời mới (AI Studio phát từ 2026-05-28) bắt đầu bằng «AQ.» — vẫn phải nhận là Gemini, đúng kiểu và đúng địa chỉ. */
+    @Test fun detectsNewGeminiAuthKeys() {
+        val p = PasteKey.presetFor("AQ.Ab8RN6LEVEabcdefghijklmnopqrstuvwxyz0123456789")
+        assertEquals("Gemini", p?.label)
+        assertEquals(ProviderConfig.Kind.Gemini, p?.kind)
+        assertEquals("https://generativelanguage.googleapis.com", p?.baseUrl)
+        // Đời cũ vẫn nhận như trước
+        assertEquals("Gemini", PasteKey.presetFor("AIzaSyAbc")?.label)
+    }
+
     @Test fun longerPrefixesWinOverGenericSk() {
         // sk-or- phải thắng sk- chung; csk- không được rơi vào sk-
         assertEquals(ProviderConfig.Kind.OpenAiCompat, PasteKey.presetFor("sk-or-v1-x")?.kind)

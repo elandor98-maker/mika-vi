@@ -53,26 +53,49 @@ object ModelOptions {
 
     /**
      * 拿来当主模型、试调用的先后:只要可当主模型、又不像别的用途的(见 [looksNonChat]);
-     * 先自家的(模型名或显示名里有 [familyTokens] 里的词,见 [ProviderPreset.familyTokens]),
+     * 先按这家的自荐词(见 [ProviderPreset.preferredTokens]:名字里有排得靠前的词的优先,
+     * 是给「最新版不是最划算」的那几家定的,空着时这一档人人相等、等于没有);
+     * 再自家的(模型名或显示名里有 [familyTokens] 里的词,见 [ProviderPreset.familyTokens]),
      * 再接口明确说能调用工具的;自家的同一档里按模型名里的版本新的在前(见 [ModelVersion]:
      * 同版本正式版在前,读不出版本的排在读得出的后面),其余照列表的顺序。
      * 服务商列表的顺序常常是老模型在前,老模型可能已下线;别家的模型各有各的版本号,不放在一起比。
      */
-    fun candidates(options: List<ModelOption>, familyTokens: List<String> = emptyList()): List<String> =
+    fun candidates(
+        options: List<ModelOption>, familyTokens: List<String> = emptyList(), preferredTokens: List<String> = emptyList(),
+    ): List<String> =
         options.filter { it.canBeMain && !looksNonChat(it) }
             .map { Triple(it, inFamily(it, familyTokens), ModelVersion.of(it.id)) }
             .sortedWith(
-                compareBy<Triple<ModelOption, Boolean, ModelVersion>>({ if (it.second) 0 else 1 }, { if (it.first.toolCallsKnown) 0 else 1 })
+                compareBy<Triple<ModelOption, Boolean, ModelVersion>>(
+                    { preferenceRank(it.first, preferredTokens) },
+                    { if (it.second) 0 else 1 },
+                    { if (it.first.toolCallsKnown) 0 else 1 },
+                )
                     .thenComparator { a, b -> if (a.second) ModelVersion.NEWEST_FIRST.compare(a.third, b.third) else 0 },
             )
             .map { it.first.id }
 
     /** 默认选的主模型:[candidates] 的第一个;一个都没有就挑第一个可当主模型的。 */
-    fun defaultMain(options: List<ModelOption>, familyTokens: List<String> = emptyList()): String? =
-        candidates(options, familyTokens).firstOrNull() ?: options.firstOrNull { it.canBeMain }?.id
+    fun defaultMain(
+        options: List<ModelOption>, familyTokens: List<String> = emptyList(), preferredTokens: List<String> = emptyList(),
+    ): String? =
+        candidates(options, familyTokens, preferredTokens).firstOrNull() ?: options.firstOrNull { it.canBeMain }?.id
 
     /** 地址对得上的预设的自家模型词;认不出地址为空。 */
     fun familyOf(baseUrl: String): List<String> = ProviderPresets.forBaseUrl(baseUrl.trim())?.familyTokens.orEmpty()
+
+    /** 地址对得上的预设的自荐词(见 [ProviderPreset.preferredTokens]);认不出地址为空。 */
+    fun preferredOf(baseUrl: String): List<String> = ProviderPresets.forBaseUrl(baseUrl.trim())?.preferredTokens.orEmpty()
+
+    /**
+     * 模型名对上 [preferredTokens] 里第几个词(从 0 起,越靠前越优先,只对名字比,不看显示名);
+     * 一个都对不上排在对得上的后面(返回列表长度);列表为空时人人都是 0,等于没有这一档。
+     */
+    private fun preferenceRank(o: ModelOption, preferredTokens: List<String>): Int {
+        if (preferredTokens.isEmpty()) return 0
+        val at = preferredTokens.indexOfFirst { t -> o.id.contains(t, ignoreCase = true) }
+        return if (at >= 0) at else preferredTokens.size
+    }
 
     private fun inFamily(o: ModelOption, tokens: List<String>): Boolean =
         tokens.any { t -> o.id.contains(t, ignoreCase = true) || o.displayName.contains(t, ignoreCase = true) }

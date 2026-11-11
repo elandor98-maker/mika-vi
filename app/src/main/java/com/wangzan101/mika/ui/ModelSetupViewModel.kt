@@ -181,6 +181,9 @@ data class AddForm(
     /** 这家自己的模型名里的词(见 [ProviderPreset.familyTokens]):选的预设给了的用它,否则按地址对得上的预设。 */
     val familyTokens: List<String> get() = presetFor(preset).familyTokens.ifEmpty { ModelOptions.familyOf(baseUrl) }
 
+    /** 这家的自荐词(见 [ProviderPreset.preferredTokens]):选的预设给了的用它,否则按地址对得上的预设。 */
+    val preferredTokens: List<String> get() = presetFor(preset).preferredTokens.ifEmpty { ModelOptions.preferredOf(baseUrl) }
+
     companion object {
         fun of(p: ProviderPreset) = AddForm(p.label, p.kind, p.baseUrl, "")
         fun presetFor(label: String): ProviderPreset = ProviderPresets.all.firstOrNull { it.label == label } ?: ProviderPresets.custom
@@ -520,7 +523,7 @@ class ModelSetupViewModel(
                 val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main))
                 if (!noneUsable && store.roles.value.main == null) {
                     val options = ModelOptions.ofProvider(p, store.list())
-                    (probed.main ?: ModelOptions.defaultMain(options, f.familyTokens) ?: options.firstOrNull()?.id)
+                    (probed.main ?: ModelOptions.defaultMain(options, f.familyTokens, f.preferredTokens) ?: options.firstOrNull()?.id)
                         ?.let { m -> use(ModelRole.Main, p, m, options) }
                 }
                 p
@@ -581,31 +584,53 @@ class ModelSetupViewModel(
      * người dùng, lúc chạy tự xoay vòng key trong hãng trước khi sang hãng khác — xem [ProviderStore.modelFor]).
      * Sau đó tự chọn model mặc định (xem [ModelOptions.defaultMain], đã lọc model không phải chat) và gán
      * vai còn trống theo thứ tự Chính → Nhẹ → Nhìn; nhà đã đang giữ một vai thì giữ nguyên vai đó.
-     * Nhận không ra hãng thì chỉ báo rõ, không lưu gì cả.
+     * Tiền tố lạ (định dạng key mới hoặc key không có tiền tố riêng) thì app tự THỬ gọi thật từng hãng
+     * để nhận diện (xem [probePasteKey]); thử hết vẫn không ra mới báo rõ, không lưu gì cả.
      */
     fun submitPasteKey() {
         val key = _state.value.pasteKey.trim()
         if (key.isEmpty() || _state.value.pasteBusy) return
         val preset = PasteKey.presetFor(key)
-        if (preset == null) {
-            _state.update { it.copy(pasteNote = tr(R.string.paste_key_unknown)) }
-            return
-        }
         _state.update { it.copy(pasteBusy = true, pasteNote = null) }
         scope.launch {
-            val listed = withContext(io) { store.listModels(preset.kind, preset.baseUrl, key, preset.sessionHeader) }
-            val models = when (listed) {
-                is ModelListResult.Ok -> listed.models
-                is ModelListResult.Failed -> {
-                    _state.update {
-                        it.copy(pasteBusy = false, pasteNote = tr(R.string.paste_key_invalid, preset.label, listed.message))
-                    }
-                    return@launch
-                }
-            }
-            val note = withContext(io) { finishPasteKey(preset, key, models) }
-            _state.update { snapshot(it.copy(pasteBusy = false, pasteKey = "", pasteNote = note)) }
+            if (preset != null) validatePasteKey(preset, key) else probePasteKey(key)
         }
+    }
+
+    /** Đường đã biết chắc hãng từ tiền tố: liệt kê model bằng chính key đó; key sống mới lưu (xem [finishPasteKey]). */
+    private suspend fun validatePasteKey(preset: ProviderPreset, key: String) {
+        val listed = withContext(io) { store.listModels(preset.kind, preset.baseUrl, key, preset.sessionHeader) }
+        val models = when (listed) {
+            is ModelListResult.Ok -> listed.models
+            is ModelListResult.Failed -> {
+                _state.update {
+                    it.copy(pasteBusy = false, pasteNote = tr(R.string.paste_key_invalid, preset.label, listed.message))
+                }
+                return
+            }
+        }
+        val note = withContext(io) { finishPasteKey(preset, key, models) }
+        _state.update { snapshot(it.copy(pasteBusy = false, pasteKey = "", pasteNote = note)) }
+    }
+
+    /**
+     * Tiền tố không nhận ra hãng: thử gọi THẬT danh sách model của lần lượt Gemini → Groq → OpenRouter →
+     * Cerebras bằng chính key đó — chỉ gửi tới đúng các địa chỉ liệt kê model chính thức của bốn hãng này,
+     * không gửi đi nơi nào khác. Hãng nào trả về danh sách thì coi là hãng đó, rồi đi tiếp y như đường
+     * biết hãng ([finishPasteKey]); cả bốn đều từ chối mới báo «không nhận ra hãng». Trong lúc thử,
+     * nút bấm đang hiện sẵn chữ «Đang kiểm tra key…» nhờ [ModelSetupUi.pasteBusy].
+     */
+    private suspend fun probePasteKey(key: String) {
+        for (label in listOf("Gemini", "Groq", "OpenRouter", "Cerebras")) {
+            val p = ProviderPresets.all.firstOrNull { it.label == label } ?: continue
+            val listed = withContext(io) { store.listModels(p.kind, p.baseUrl, key, p.sessionHeader) }
+            if (listed is ModelListResult.Ok) {
+                val note = withContext(io) { finishPasteKey(p, key, listed.models) }
+                _state.update { snapshot(it.copy(pasteBusy = false, pasteKey = "", pasteNote = note)) }
+                return
+            }
+        }
+        _state.update { it.copy(pasteBusy = false, pasteNote = tr(R.string.paste_key_unknown)) }
     }
 
     /** Phần ghi xuống storage của [submitPasteKey]: tạo/thêm nhà + key, chọn model mặc định, gán vai. Trả về câu kết quả. */
@@ -624,7 +649,7 @@ class ModelSetupViewModel(
         }
         val fresh = PasteKey.existingProvider(store, preset) ?: return tr(R.string.paste_key_invalid, preset.label, "")
         val allOptions = ModelOptions.ofProvider(fresh, store.list())
-        val model = ModelOptions.defaultMain(allOptions.filter { o -> !ModelOptions.looksNonChat(o) }, preset.familyTokens)
+        val model = ModelOptions.defaultMain(allOptions.filter { o -> !ModelOptions.looksNonChat(o) }, preset.familyTokens, preset.preferredTokens)
             ?: return tr(R.string.paste_key_no_model, keyNo, preset.label)
         val serving = ModelRole.entries.firstOrNull { r -> store.configFor(r)?.providerId == fresh.id }
         val role = serving ?: when {
@@ -690,7 +715,7 @@ class ModelSetupViewModel(
         // 列表给某个模型单独指定了接口的(见 [ListedModel.endpoint]),调用按它自己说的协议走、与这里选的接口类型
         // 无关,不能筛掉;协议未知的(没写这个字段)也照旧去试。
         val mismatched = mutableListOf<String>()
-        val usable = ModelOptions.candidates(options, f.familyTokens).filter { m ->
+        val usable = ModelOptions.candidates(options, f.familyTokens, f.preferredTokens).filter { m ->
             val listed = models.firstOrNull { it.id == m }
             if (listed?.endpoint != null) return@filter true
             val protocols = listed?.protocols ?: return@filter true

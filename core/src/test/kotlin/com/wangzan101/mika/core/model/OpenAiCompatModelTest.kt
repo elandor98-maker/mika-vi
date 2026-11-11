@@ -177,6 +177,10 @@ class OpenAiCompatModelTest {
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid value for 'context': expected a string"}}""")) is ModelError.BadResponse)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid type for 'messages[1].content': expected a string","input":"how big is your context window?"}}""")) is ModelError.BadResponse)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid 'tools[3].function.name': string too long. Expected a string with maximum length 64, but got a string with length 67 instead."}}""")) is ModelError.BadResponse)
+        // 413 kiểu Groq: vượt trần token/phút -> giới hạn tần suất (được chuyển hãng/xoay key, không chết tại chỗ)
+        assertTrue(errorFor(MockResponse().setResponseCode(413).setBody("""{"error":{"message":"Request too large for model `openai/gpt-oss-20b` on tokens per minute (TPM): Limit 8000, Requested 8779"}}""")) is ModelError.RateLimited)
+        // 413 không nhắc giới hạn: gói yêu cầu tự nó quá lớn -> cùng loại ngữ cảnh quá dài
+        assertTrue(errorFor(MockResponse().setResponseCode(413).setBody("{}")) is ModelError.ContextTooLong)
         assertEquals("m", (errorFor(MockResponse().setResponseCode(404)) as ModelError.ModelNotFound).model)
         // 网关回的 404 不一定是模型名不对:带上它 JSON 里的原话;HTML 页不当原话
         val gateway = errorFor(MockResponse().setResponseCode(404).setBody("""{"error":{"type":"not_found_error","message":"none of group/rpa's models is ready"}}""")) as ModelError.ModelNotFound

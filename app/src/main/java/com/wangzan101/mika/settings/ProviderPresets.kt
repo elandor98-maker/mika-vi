@@ -25,6 +25,17 @@ data class ProviderPreset(
      * 只填官方文档确认过的值,不猜;照服务商写明的顺序。
      */
     val reasoningLevels: List<String> = emptyList(),
+    /**
+     * Tự đề cử model mặc định cho hãng này (yêu cầu của người dùng: app phải tự chọn model ngon +
+     * nhanh nhất của từng hãng, người dùng không tự chọn): các từ con của tên model, từ ở trước được
+     * ưu tiên hơn; model nào khớp từ sớm hơn thì thắng bất kể phiên bản (xem [ModelOptions.candidates]).
+     * Chỉ điền khi «phiên bản mới nhất» KHÔNG phải lựa chọn tốt nhất cho người dùng free, ví dụ
+     * Gemini: bản flash thường mới nhất chỉ có ~20 lượt free/ngày, trong khi flash-lite ~500 lượt/ngày
+     * lại nhanh nhất; Groq: gpt-oss-120b khôn hơn hẳn 20b dù «phiên bản» đọc như nhau;
+     * OpenRouter: phải ưu tiên model «:free» để khỏi chọn nhầm model tính tiền.
+     * Để trống thì giữ nguyên cách xếp cũ (theo họ model + phiên bản).
+     */
+    val preferredTokens: List<String> = emptyList(),
 )
 
 object ProviderPresets {
@@ -69,19 +80,22 @@ object ProviderPresets {
         ProviderPreset("腾讯混元", ProviderConfig.Kind.OpenAiCompat, "https://tokenhub.tencentmaas.com/v1", caps(context = 256_000), familyTokens = listOf("hunyuan")),
         // Key 是控制台生成的 bce-v3/… 那一串,照 Bearer 发
         ProviderPreset("百度千帆", ProviderConfig.Kind.OpenAiCompat, "https://qianfan.baidubce.com/v2", caps(), familyTokens = listOf("ernie")),
-        ProviderPreset("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", caps()),
+        ProviderPreset("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", caps(),
+            preferredTokens = listOf(":free")),
         ProviderPreset("Requesty", ProviderConfig.Kind.OpenAiCompat, "https://router.requesty.ai/v1", caps()),
         // 订阅制,一个 Key 用多家模型;各模型走哪种协议、哪个地址由模型列表逐个写明,这里的接口类型只是没写明时的退路。
         // 每个请求都要带对话的会话号,不带就拒绝(HTTP 400)
         ProviderPreset("OpenCode Go", ProviderConfig.Kind.OpenAiCompat, "https://opencode.ai/zen/go/v1", caps(), sessionHeader = "x-opencode-session"),
         ProviderPreset("Anthropic", ProviderConfig.Kind.Anthropic, "https://api.anthropic.com", caps(vision = true, context = 200_000), familyTokens = listOf("claude")),
-        ProviderPreset("Gemini", ProviderConfig.Kind.Gemini, "https://generativelanguage.googleapis.com", caps(vision = true, context = 128_000), familyTokens = listOf("gemini")),
+        ProviderPreset("Gemini", ProviderConfig.Kind.Gemini, "https://generativelanguage.googleapis.com", caps(vision = true, context = 128_000), familyTokens = listOf("gemini"),
+            preferredTokens = listOf("3.8-flash", "flash-lite", "3.6-flash")),
         // 官方 API 走 Responses:新的主力模型调用工具必须用 Responses,Chat Completions 带工具会被拒。列模型同样是 GET /models
         ProviderPreset("OpenAI", ProviderConfig.Kind.OpenAiResponses, "https://api.openai.com/v1", caps(vision = true, context = 400_000), familyTokens = listOf("gpt")),
         ProviderPreset("xAI", ProviderConfig.Kind.OpenAiCompat, "https://api.x.ai/v1", caps(vision = true, context = 256_000), familyTokens = listOf("grok")),
         // 列模型接口写明每个模型能不能调用工具、看图和上下文长度
         ProviderPreset("Mistral", ProviderConfig.Kind.OpenAiCompat, "https://api.mistral.ai/v1", caps(vision = true, context = 128_000), familyTokens = listOf("mistral")),
-        ProviderPreset("Groq", ProviderConfig.Kind.OpenAiCompat, "https://api.groq.com/openai/v1", caps(context = 128_000), familyTokens = listOf("gpt-oss")),
+        ProviderPreset("Groq", ProviderConfig.Kind.OpenAiCompat, "https://api.groq.com/openai/v1", caps(context = 128_000), familyTokens = listOf("gpt-oss"),
+            preferredTokens = listOf("gpt-oss-120b", "gpt-oss")),
         // Hàng free hào phóng nhất cho tác vụ agent: 1 triệu token/ngày (kiểm chứng 11/2026); chạy Llama/Qwen/GPT-OSS của hãng khác nên không gắn familyTokens như các nhà đa mô hình khác
         ProviderPreset("Cerebras", ProviderConfig.Kind.OpenAiCompat, "https://api.cerebras.ai/v1", caps(context = 128_000)),
         // 自己机器上跑的:地址是本机的默认端口,跑在电脑上时改成电脑的局域网地址;不要 Key

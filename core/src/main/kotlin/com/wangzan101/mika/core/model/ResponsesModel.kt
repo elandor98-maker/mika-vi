@@ -205,6 +205,9 @@ class ResponsesModel(
             status == 403 -> if (chatGptPlan) ModelError.ChatGptNotEligible(err?.message.orEmpty().take(200)) else ModelError.Auth()
             status == 429 -> if (chatGptPlan) ModelError.ChatGptLimitReached() else ModelError.RateLimited(HttpSupport.retryAfterMs(retryAfter))
             status == 402 -> ModelError.QuotaExceeded()
+            // 413 与 OpenAI 兼容接口同一套(见 ModelHttp.openAiError):每分钟 token 打满的是限流,其余是请求本身超限
+            status == 413 -> if (ModelHttp.says413RateLimit(body)) ModelError.RateLimited(HttpSupport.retryAfterMs(retryAfter))
+                else ModelError.ContextTooLong()
             ModelHttp.contextTooLong(status, body) -> ModelError.ContextTooLong()
             status == 404 -> ModelError.ModelNotFound(model, ModelAccessErrors.jsonDetail(body))
             status in 500..599 -> ModelError.Server(status)

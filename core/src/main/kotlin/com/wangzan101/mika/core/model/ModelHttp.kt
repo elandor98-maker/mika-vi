@@ -27,6 +27,11 @@ object ModelHttp {
             status == 401 -> ModelError.Auth()
             status == 402 || body.contains("insufficient_quota") -> ModelError.QuotaExceeded()
             status == 429 -> ModelError.RateLimited(HttpSupport.retryAfterMs(retryAfter))
+            // 413 请求太大:是每分钟 token 打满的(见 [says413RateLimit])当作限流——过一会儿、换 Key、换家都能好;
+            // 其余的 413 是这个请求本身大得超出这家能收的范围,和上下文太长同类处理。两类都是会切换的错,
+            // 不能落到「内容解析不了」直接把整次任务打死(Groq 免费档 TPM 8000 时真实发生过)。
+            status == 413 -> if (says413RateLimit(body)) ModelError.RateLimited(HttpSupport.retryAfterMs(retryAfter))
+                else ModelError.ContextTooLong()
             contextTooLong(status, body) -> ModelError.ContextTooLong()
             status == 404 -> ModelError.ModelNotFound(model, ModelAccessErrors.jsonDetail(body))
             status in 500..599 -> ModelError.Server(status)
@@ -36,6 +41,17 @@ object ModelHttp {
 
     /** HTTP 400 的报错说请求超出了模型的上下文(见 [saysContextTooLong])。OpenAI 兼容、Responses、Anthropic 三种接口共用;本机跑的服务三种接口都可能开。 */
     fun contextTooLong(status: Int, body: String): Boolean = status == 400 && saysContextTooLong(body)
+
+    /**
+     * HTTP 413 的报错是不是在说限流:每分钟 token 数(TPM)打满一类。Groq 的原话是
+     * 「Request too large for model … on tokens per minute (TPM): Limit 8000, Requested 8779」。
+     * 是限流的话这一分钟过不去、下一分钟就行,或换 Key(TPM 按组织算,同家多 Key 也可能同顶)、换家;
+     * 不是的 413 是请求体积本身超限,等多久都过不去,只能换家或把请求变小。
+     */
+    fun says413RateLimit(body: String): Boolean {
+        val lower = body.lowercase()
+        return "tokens per minute" in lower || "tpm" in lower || "rate" in lower
+    }
 
     /** HTTP 400 明确指出思考强度参数无效。只认参数名或完整的协议字段,不从任意“unsupported”文字猜。 */
     fun reasoningEffortRejected(status: Int, body: String): ModelError.ReasoningEffortRejected? {
@@ -86,3 +102,4 @@ object ModelHttp {
         }
     }
 }
+

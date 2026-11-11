@@ -160,6 +160,46 @@ class ModelOptionsTest {
         assertEquals("gemini-3.1-pro", ModelOptions.defaultMain(ModelOptions.merge(listed, base), gemini))
     }
 
+    /**
+     * Tự đề cử theo hãng (preferredTokens): người dùng yêu cầu app tự chọn bản khôn + nhanh nhất, không bắt chọn tay.
+     * Gemini: ưu tiên «3.8-flash» trước (bản khôn/mới nhất chạy được free; hạn mức 20 lượt/ngày/tài khoản được
+     * bù bằng vòng xoay nhiều key của người dùng), không có 3.8 mới tới flash-lite (nhẹ, ~500 lượt/ngày), rồi 3.6-flash;
+     * Groq phải chọn gpt-oss-120b chứ không phải 20b (hai tên này ModelVersion đọc như nhau, trước đây toàn theo thứ tự list nên chọn nhầm 20b);
+     * OpenRouter phải chọn model «:free» thay vì model tính tiền đứng trước trong list.
+     */
+    @Test fun preferredTokensPickTheRecommendedDefault() {
+        fun preset(label: String) = ProviderPresets.all.single { it.label == label }
+        fun pick(label: String, listed: List<ListedModel>): String? {
+            val p = preset(label)
+            return ModelOptions.defaultMain(ModelOptions.merge(listed, base), p.familyTokens, p.preferredTokens)
+        }
+        val gemini = preset("Gemini")
+        assertEquals(listOf("3.8-flash", "flash-lite", "3.6-flash"), gemini.preferredTokens)
+        assertEquals(
+            "gemini-3.8-flash",
+            pick("Gemini", listOf("gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash-lite").map { ListedModel(it) }),
+        )
+        // Không có bản 3.8 nào: flash-lite thắng flash thường (nhẹ, hạn mức ngày lớn hơn nhiều)
+        assertEquals(
+            "gemini-3.5-flash-lite",
+            pick("Gemini", listOf("gemini-3.5-flash", "gemini-3.5-flash-lite").map { ListedModel(it) }),
+        )
+        val groq = preset("Groq")
+        assertEquals(listOf("gpt-oss-120b", "gpt-oss"), groq.preferredTokens)
+        assertEquals(
+            "openai/gpt-oss-120b",
+            pick("Groq", listOf(ListedModel("openai/gpt-oss-20b"), ListedModel("openai/gpt-oss-120b"), ListedModel("llama-3.3-70b-versatile"))),
+        )
+        val openRouter = preset("OpenRouter")
+        assertEquals(listOf(":free"), openRouter.preferredTokens)
+        assertEquals(
+            "meta-llama/llama-3.3-70b-instruct:free",
+            pick("OpenRouter", listOf(ListedModel("anthropic/claude-sonnet-4.5"), ListedModel("meta-llama/llama-3.3-70b-instruct:free"))),
+        )
+        // Hãng không có preferredTokens: hành vi y như cũ (theo họ + phiên bản)
+        assertEquals(emptyList<String>(), preset("DeepSeek").preferredTokens)
+    }
+
     @Test fun nonChatModelsAreRecognised() {
         fun opt(id: String, chat: Boolean? = null) = ModelOptions.merge(listOf(ListedModel(id, chat = chat)), base).single()
         for (id in listOf("text-embedding-3-small", "bge-reranker", "whisper-1", "gpt-4o-mini-tts", "gpt-4o-transcribe", "dall-e-3",
