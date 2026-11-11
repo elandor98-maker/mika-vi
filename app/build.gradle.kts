@@ -77,6 +77,21 @@ android {
     // 评测任务集(仓库根目录 eval/tasks)打进测试包的 assets,真机评测跑器从那里读题
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("eval/tasks"))
 
+    // Khoa ky co dinh cho ban perf: dung file khoa cua repo (giai ma tu
+    // signing/debug.keystore.b64 trong ci-build.sh) thay vi khoa debug ngau
+    // nhien cua tung may build — moi ban build ky cung mot khoa, cai de khong
+    // xung dot va khong mat du lieu. Mat khau la mat khau debug chuan "android".
+    // Tro thang toi file trong repo thay vi ~/.android (ban build-15 chung minh
+    // cach qua HOME that bai am tham, khong de lai dau vet trong log).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("signing/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         // 真机验收时并排安装,保留发行版和用户数据;默认构建标识不变。
         if (providers.gradleProperty("devInstall").isPresent) getByName("debug") {

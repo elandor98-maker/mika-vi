@@ -24,3 +24,6 @@ __pycache__/
 
 # llama.cpp is fetched by CI at build time (see .github/workflows/build.yml); do not commit it
 /app/src/main/cpp/llama.cpp/
+
+# Khoa ky build (giai ma tu signing/*.b64 trong CI, khong commit file nhi phan)
+/signing/debug.keystore

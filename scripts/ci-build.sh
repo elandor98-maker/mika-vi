@@ -38,16 +38,18 @@ export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-t
 yes | sdkmanager --licenses > /dev/null 2>&1 || true
 sdkmanager "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-# --- 3b. Khoa ky co dinh cho moi ban build -----------------------------------
-# Thieu buoc nay, moi lan chay Actions lai sinh khoa ky debug ngau nhien khac
-# nhau -> ban moi khong cai de len ban cu duoc (xung dot chu ky), phai go app
-# va mat het du lieu + key da luu. Giai ma khoa co dinh cua repo vao dung cho
-# mac dinh cua Gradle debug de moi ban build ky cung mot khoa.
-mkdir -p "${HOME}/.android"
-base64 -d signing/debug.keystore.b64 > "${HOME}/.android/debug.keystore"
+# --- 3b. Khoa ky co dinh + icon ung dung -------------------------------------
+# Khoa ky: moi lan chay Actions lai sinh khoa ky debug ngau nhien khac nhau ->
+# ban moi khong cai de len ban cu duoc (xung dot chu ky), phai go app va mat het
+# du lieu + key da luu. Giai ma khoa co dinh cua repo vao NGAY TRONG REPO
+# (signing/debug.keystore); build.gradle.kts tro thang toi file nay, khong phu
+# thuoc bien HOME cua may build. Kiem tra luon: khoa phai mo duoc bang alias
+# chuan, sai la dung build ngay chu khong im lang ky bang khoa ngau nhien.
+base64 -d signing/debug.keystore.b64 > signing/debug.keystore || exit 1
+"${JAVA_HOME}/bin/keytool" -list -keystore signing/debug.keystore -storepass android -alias androiddebugkey > /dev/null || exit 1
 # Anh icon ung dung (anh cua nguoi dung) giu dang base64 trong repo, giai ma vao
 # drawable-nodpi truoc khi build; file PNG khong nam trong repo dang nhi phan.
-base64 -d signing/phongai-icon.b64 > app/src/main/res/drawable-nodpi/phongai_icon_photo.png
+base64 -d signing/phongai-icon.b64 > app/src/main/res/drawable-nodpi/phongai_icon_photo.png || exit 1
 
 # --- 4. Build ban perf (arm64) ------------------------------------------------
 set -o pipefail
@@ -63,11 +65,21 @@ if [ -n "$APK" ]; then
   cp "$APK" out/mika-vi-arm64.apk
   (cd out && sha256sum mika-vi-arm64.apk > mika-vi-arm64.apk.sha256)
 fi
+# Kiem tra chu ky: APK phai ky bang khoa co dinh cua repo (3d1e9edb...); neu
+# khac thi danh dau THAT BAI, van phat hanh kem log de co the chan doan, roi
+# thoat loi — khong bao gio im lang giao ban ky sai nua.
+SIGN_OK=1
+if [ -f out/mika-vi-arm64.apk ]; then
+  if ! "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --print-certs out/mika-vi-arm64.apk | grep -qi "3d1e9edb1c55ddea65245f9a9bce93014529bcbbf11523a25907d55ace463928"; then
+    SIGN_OK=0
+    echo "CHU KY KHONG KHOP KHOA CO DINH (3d1e9edb...)"
+  fi
+fi
 tail -c 190000 build-log.txt > out/build-log.txt 2>/dev/null || true
 ls -la out || true
 
 TAG="build-${BUILD_NUMBER:-local}"
-if [ -f out/mika-vi-arm64.apk ]; then
+if [ -f out/mika-vi-arm64.apk ] && [ "$SIGN_OK" = 1 ]; then
   TITLE="Mika VI - ban build ${BUILD_NUMBER:-local}"
 else
   TITLE="Mika VI - ban build ${BUILD_NUMBER:-local} (THAT BAI, xem build-log.txt)"
@@ -75,4 +87,5 @@ fi
 gh release create "$TAG" out/* --title "$TITLE" \
   --notes "Build tu dong Mika VI (ban perf, arm64-v8a). Tai file mika-vi-arm64.apk de cai dat." || true
 
+if [ "$SIGN_OK" = 0 ]; then exit 1; fi
 exit ${BUILD_RC}
