@@ -1,7 +1,7 @@
 ---
 name: documents
 display: Xử lý tài liệu PDF
-description: Đọc chữ trong PDF, lấy theo trang, xem thông tin tài liệu, tách và ghép rồi gửi file cho người dùng
+description: Đọc PDF, tách/ghép file và gửi tài liệu cho người dùng
 aliases: ["读 PDF", "PDF 转文字", "合并 PDF"]
 terms: ["PDF", "文档", "提取文字", "按页", "合并", "拆分", "扫描件"]
 ---

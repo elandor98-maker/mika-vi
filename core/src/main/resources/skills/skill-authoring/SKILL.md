@@ -1,7 +1,7 @@
 ---
 name: skill-authoring
 display: Viết kỹ năng
-description: Dùng khi người dùng muốn tạo mới, nhập hoặc sửa một kỹ năng (cách làm cố định cho một loại việc): viết thế nào, kiểm tra trùng thế nào, lưu ra sao
+description: Tạo mới, nhập hoặc sửa một kỹ năng cho Phòng AI
 aliases: ["创建技能", "新建技能", "写个技能", "保存技能", "导入技能", "改技能", "skill"]
 terms: ["技能", "做法", "流程", "步骤", "模板", "以后都这样做", "存成技能", "导入", "改写"]
 ---

@@ -1,7 +1,7 @@
 ---
 name: configure-mika
 display: Đổi cài đặt của Phòng AI
-description: Dùng khi người dùng bảo Phòng AI đổi cài đặt của chính nó: để xem và sửa; mô hình, Key và xóa dữ liệu không nằm trong này
+description: Đổi cài đặt của Phòng AI (trừ model, key, xóa dữ liệu)
 aliases: ["设置你自己", "改你的设置", "调快一点", "别静音", "换个外观"]
 terms: ["设置", "配置", "快一点", "慢一点", "静音", "外观", "深色", "浅色", "胶囊"]
 ---

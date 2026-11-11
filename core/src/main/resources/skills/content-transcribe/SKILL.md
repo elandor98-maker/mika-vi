@@ -1,7 +1,7 @@
 ---
 name: content-transcribe
 display: Đưa nội dung thành văn bản
-description: Đưa video, podcast, bài viết thành văn bản: tóm tắt, chia chương, trích dẫn hoặc viết lại thành bài
+description: Biến video, podcast, bài viết thành văn bản và tóm tắt
 aliases: ["总结视频", "整理播客", "文章摘要", "提取字幕"]
 apps: ["bilibili", "xiaohongshu"]
 sites: ["youtube.com", "xiaoyuzhoufm.com"]

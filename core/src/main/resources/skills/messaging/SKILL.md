@@ -1,7 +1,7 @@
 ---
 name: messaging
 display: Tin nhắn và email
-description: Đọc lịch sử trò chuyện và email, soạn sẵn câu trả lời, gửi đúng người và xác nhận đã gửi
+description: Đọc tin nhắn/email, soạn sẵn câu trả lời, gửi đúng người
 aliases: ["发消息", "回消息", "发邮件", "看未读"]
 apps: ["wechat", "feishu"]
 sites: ["instagram.com"]

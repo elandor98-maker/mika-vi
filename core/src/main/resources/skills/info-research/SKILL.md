@@ -1,7 +1,7 @@
 ---
 name: info-research
 display: Tìm hiểu rõ một việc
-description: Tìm hiểu rõ một việc trên mạng: tìm hướng, đọc nguồn gốc, đối chiếu nhiều phía, ghi rõ nguồn và thời gian
+description: Tìm hiểu trên mạng, đối chiếu nguồn, ghi rõ xuất xứ
 aliases: ["调研", "查一下", "帮我了解"]
 apps: ["xiaohongshu", "zhihu", "bilibili", "weibo"]
 sites: ["zhihu.com", "tieba.baidu.com", "weibo.com", "douban.com"]
