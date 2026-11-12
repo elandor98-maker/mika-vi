@@ -1503,7 +1503,7 @@ class ProviderStoreTest {
     /** v3.6 (mục 1): đoạn pool CHỈ nối vào chuỗi Chính — chuỗi Nhẹ giữ nguyên (chỉ các cấu hình có vai). Hai nửa dùng hai store riêng: lỗi xác thực ghi ở nửa này sẽ đóng cổng Dead cho nửa kia. */
     @Test fun poolProvidersDoNotJoinLightChain() = runTest {
         val attempts = mutableListOf<String>()
-        fun scenario(dir: java.io.File): Triple<ProviderStore, List<String>> {
+        fun scenario(dir: java.io.File): Pair<ProviderStore, List<String>> {
             val s = ProviderStore(
                 dir, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
                 modelFactory = { cfg, _, _, _ ->
@@ -1522,7 +1522,7 @@ class ProviderStoreTest {
             val c = s.connect("C", ProviderConfig.Kind.OpenAiCompat, "https://c.test/v1", "kc", listOf(ListedModel("ok-m")))
             s.use(ModelRole.Main, a.id, "dead-a", none)
             s.use(ModelRole.Light, b.id, "dead-b", none)
-            return Triple(s, listOf(a.id, b.id, c.id))
+            return Pair(s, listOf(a.id, b.id, c.id))
         }
 
         // Chuỗi Nhẹ = [B, A] (vai Nhẹ + vai Chính như cũ), C không được mượn → sập, C không bị gọi
