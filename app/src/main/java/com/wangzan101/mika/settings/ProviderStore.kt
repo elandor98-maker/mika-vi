@@ -552,8 +552,9 @@ class ProviderStore(
 
     /**
      * Kiểm tra TỪNG key đã lưu của mọi hãng dùng API key (hãng đăng nhập bằng tài khoản bỏ qua,
-     * đúng quy tắc liệt kê của [keyRows]): mỗi key đúng MỘT lần gọi liệt kê mô hình rất nhẹ;
-     * hãng nào không cho liệt kê thì thay bằng một lần gọi thử tối thiểu ([probeKey]).
+     * đúng quy tắc liệt kê của [keyRows]): mỗi key được kiểm chứng MỘT lần theo [validateKey] —
+     * nhà đã có model được cấu hình thì bằng một lần GỌI THẬT tối thiểu tới đúng model đó (v3.6);
+     * nhà chưa có model nào được cấu hình thì mới nhìn qua đường liệt kê mô hình.
      * Kết quả ghi vào đúng kho trạng thái mà lúc chạy vẫn dùng ([updateKeyStatus]): sống → xoá lỗi/cooldown
      * đã ghi; hết lượt → đúng loại lỗi + cooldown theo bảng [keyCooldownMs]; key chết (401) → lỗi xác thực.
      * Nhờ vậy chip trong Cài đặt hiện đúng tình trạng TRƯỚC khi chạy việc, và cổng [gateFor] cho chuỗi
@@ -590,8 +591,26 @@ class ProviderStore(
         autoCheckScope.launch { runCatching { checkAllKeys() } }
     }
 
-    /** Một key còn sống hay không, nhìn qua đường liệt kê mô hình của chính hãng đó (rẻ, không tốn lượt gọi mô hình). */
-    private suspend fun validateKey(p: Provider, key: String): KeyCheck =
+    /**
+     * Một key còn sống hay không. Nhà đã có model được cấu hình (đang giữ một vai, hoặc còn cấu hình
+     * đã lưu) thì kiểm tra bằng MỘT LẦN GỌI THẬT tối thiểu tới đúng model đó ([probeKeyCheck]) —
+     * Phòng AI v3.6: chỉ nhìn đường liệt kê thì key «sống giả» vẫn qua được (liệt kê được nhưng gọi
+     * thật bị từ chối quyền trên đúng model đang dùng), nên kết quả kiểm tra phải khớp lúc chạy thật.
+     * Nhà chưa có model nào được cấu hình thì mới nhìn qua đường liệt kê mô hình của chính hãng đó
+     * (rẻ, không tốn lượt gọi mô hình).
+     */
+    private suspend fun validateKey(p: Provider, key: String): KeyCheck {
+        val cfg = checkConfigFor(p)
+        return if (cfg != null) probeKeyCheck(p, key, cfg) else listKeyCheck(p, key)
+    }
+
+    /** Cấu hình dùng để kiểm tra key của nhà [p]: cấu hình đang giữ vai của nhà đó trước; không có thì cấu hình đầu đã lưu của nhà. */
+    private fun checkConfigFor(p: Provider): ProviderConfig? =
+        ModelRole.entries.firstNotNullOfOrNull { r -> configFor(r)?.takeIf { it.providerId == p.id } }
+            ?: _configs.value.firstOrNull { it.providerId == p.id }
+
+    /** Kiểm tra bằng đường liệt kê mô hình (chỉ dùng khi nhà chưa có model được cấu hình — xem [validateKey]). */
+    private suspend fun listKeyCheck(p: Provider, key: String): KeyCheck =
         when (val r = listModels(p.kind, p.baseUrl, key, p.sessionHeader)) {
             is ModelListResult.Ok -> KeyCheck.Alive
             is ModelListResult.Failed -> when (r.reason) {
@@ -608,12 +627,25 @@ class ProviderStore(
 
     /** Hãng không cho liệt kê mô hình: kiểm tra bằng một lần gọi thử tối thiểu với đúng key đó, dùng mô hình đã cấu hình của hãng. */
     private suspend fun probeKey(p: Provider, key: String): KeyCheck {
-        val cfg = _configs.value.firstOrNull { it.providerId == p.id } ?: return KeyCheck.Inconclusive
-        return when (val r = probe(p.kind, p.baseUrl, key, p.sessionHeader, cfg.model, listedOf(cfg)?.endpoint, cfg.capabilities)) {
-            is ProbeResult.Failed -> KeyCheck.Failed(r.error)
+        val cfg = checkConfigFor(p) ?: return KeyCheck.Inconclusive
+        return probeKeyCheck(p, key, cfg)
+    }
+
+    /**
+     * Kiểm tra một key bằng một lần gọi thật tối thiểu ([probe]) tới model [cfg] của chính hãng đó:
+     * gọi được (kể cả chỉ trả lời chữ mà không gọi công cụ) = key sống. Lỗi nhà cung cấp trả về được
+     * phân loại bằng đúng bảng [keyCooldownMs] như lúc chạy thật, nên trạng thái ghi ra khớp hành vi
+     * của chuỗi dự phòng; riêng các lỗi không nói lên điều gì về key (trả lời không đọc được, proxy
+     * chặn giữa đường) thì KHÔNG kết luận — không bao giờ vì chúng mà ghi key chết.
+     */
+    private suspend fun probeKeyCheck(p: Provider, key: String, cfg: ProviderConfig): KeyCheck =
+        when (val r = probe(p.kind, p.baseUrl, key, p.sessionHeader, cfg.model, listedOf(cfg)?.endpoint, cfg.capabilities)) {
+            is ProbeResult.Failed -> when (r.error) {
+                is ModelError.BadResponse, is ModelError.Proxy -> KeyCheck.Inconclusive
+                else -> KeyCheck.Failed(r.error)
+            }
             else -> KeyCheck.Alive
         }
-    }
 
     /** Ghi kết quả kiểm tra trước của key số [index] (1-based): sống thì xoá lỗi/cooldown đã ghi; sập thì ghi loại lỗi + hạn cooldown (cùng bảng [keyCooldownMs] với lúc chạy). */
     private fun recordKeyCheck(providerId: String, index: Int, result: KeyCheck) {
@@ -907,7 +939,7 @@ class ProviderStore(
             }
             return buildMetered(primary, role, session)
         }
-        val chain = failoverChain(primary)
+        val chain = failoverChain(primary, role)
         // Mỗi nhà có thể có NHIỀU key (nhiều tài khoản của người dùng): chuỗi được trải ra
         // một mắt xích cho mỗi key, key của nhà trước nằm trước key của nhà sau. Nhờ vậy khi một key
         // hết hạn mức/bị giới hạn, FailoverChatModel tự chuyển sang KEY KẾ TIẾP CỦA CÙNG NHÀ trước,
@@ -960,8 +992,11 @@ class ProviderStore(
         }
         val all = providerKeys(cfg.providerId).filter { it.isNotBlank() }
         if (all.size <= 1) {
+            // Key truyền thẳng (thay vì để [buildMetered] tự tra [apiKey] theo id cấu hình): cấu hình
+            // tổng hợp tạm của chuỗi pool (xem [poolConfigFor]) không nằm trong _configs nên tra theo
+            // id không ra; key lấy từ danh sách đã lưu là cùng một key, hành vi với cấu hình thật không đổi.
             return listOf(
-                buildMetered(cfg, role, session) to
+                buildMetered(cfg, role, session, keyOverride = all.firstOrNull()) to
                     ServingLink(cfg.providerId, providerName, if (all.isEmpty()) 0 else 1, all.size, cfg.model),
             )
         }
@@ -975,8 +1010,15 @@ class ProviderStore(
      * Main/Nhẹ/Nhìn của các nhà CLOUD khác đã có key sẵn (mỗi nhà tối đa một mắt xích).
      * AI nội bộ không làm mắt xích dự phòng — nó chậm, chỉ dùng khi được chọn làm mô hình chính.
      * Xem [FailoverChatModel]: nhà nào hết hạn mức/sập thì tự nhảy sang nhà kế tiếp.
+     *
+     * Phòng AI v3.6: RIÊNG chuỗi của mô hình CHÍNH còn nối tiếp MỌI nhà cloud khác đã nối (kể cả
+     * chưa được gán vai nào — xem [poolConfigFor]) làm mắt xích dự phòng cuối hàng: nhà chính chết
+     * là chuỗi tự lùi xuống các nhà còn lại, người dùng không phải gán vai hay chuyển tay nữa.
+     * Đoạn nối thêm xếp các model «khôn» trong bảng [OPENROUTER_FAN_OUT] lên trước (đúng thứ tự
+     * bảng), các nhà còn lại giữ thứ tự đã nối. Chuỗi Nhẹ/Nhìn giữ nguyên như cũ (chỉ các cấu hình
+     * có vai), và mỗi nhà vẫn chỉ góp mặt một lần nên cặp (nhà, số thứ tự key) không bao giờ trùng.
      */
-    private fun failoverChain(primary: ProviderConfig): List<ProviderConfig> {
+    private fun failoverChain(primary: ProviderConfig, role: ModelRole): List<ProviderConfig> {
         val out = mutableListOf(primary)
         val seenProviders = mutableSetOf(primary.providerId)
         for (r in listOf(ModelRole.Main, ModelRole.Light, ModelRole.Vision)) {
@@ -989,7 +1031,47 @@ class ProviderStore(
             seenProviders += cfg.providerId
             out += cfg
         }
+        if (role == ModelRole.Main) {
+            val pool = mutableListOf<ProviderConfig>()
+            for (p in _providers.value) {
+                if (p.id in seenProviders) continue
+                if (p.kind == ProviderConfig.Kind.Local) continue
+                val cfg = poolConfigFor(p) ?: continue
+                seenProviders += p.id
+                pool += cfg
+            }
+            // sortedBy ổn định: model trong bảng khôn lên trước theo thứ tự bảng, còn lại giữ thứ tự đã nối.
+            pool.sortBy { cfg -> OPENROUTER_FAN_OUT.indexOfFirst { it.first == cfg.model }.let { if (it < 0) Int.MAX_VALUE else it } }
+            out += pool
+        }
         return out
+    }
+
+    /**
+     * Cấu hình hiệu dụng của một nhà cloud đã nối nhưng không giữ vai nào, để chuỗi CHÍNH (v3.6)
+     * lấy làm mắt xích dự phòng: có cấu hình đã lưu thì dùng cấu hình đầu của nhà đó; chưa có thì
+     * TỔNG HỢP TẠM từ danh sách model nhà đó đã từng liệt kê (model tự chọn theo cùng lệ chọn model
+     * mặc định của app — model khôn theo [ProviderPresets] đứng trước), KHÔNG ghi xuống đĩa (cấu hình
+     * không vai vốn bị dọn khi nạp lại, xem [prune]; mắt xích chỉ cần tồn tại trong lần dựng chuỗi).
+     * Nhà chưa có key (hãng đăng nhập bằng tài khoản: chưa có phiên đăng nhập), hoặc chưa từng liệt
+     * kê được model nào, thì không dựng được mắt xích → null.
+     */
+    private fun poolConfigFor(p: Provider): ProviderConfig? {
+        val hasKey = if (p.kind == ProviderConfig.Kind.ChatGpt || p.kind == ProviderConfig.Kind.Xai) {
+            !providerKey(p.id).isNullOrBlank()
+        } else {
+            providerKeys(p.id).any { it.isNotBlank() }
+        }
+        if (!hasKey) return null
+        _configs.value.firstOrNull { it.providerId == p.id }?.let { return it }
+        if (p.models.isNullOrEmpty()) return null
+        val options = ModelOptions.ofProvider(p, _configs.value)
+        val model = ModelOptions.defaultMain(
+            options.filter { o -> !ModelOptions.looksNonChat(o) },
+            ModelOptions.familyOf(p.baseUrl), ModelOptions.preferredOf(p.baseUrl),
+        ) ?: return null
+        val caps = options.firstOrNull { it.id == model }?.capabilities ?: ModelOptions.baseOf(p)
+        return ProviderConfig("pool:" + p.id, p.kind, p.baseUrl, model, caps, p.name, p.id)
     }
 
     /**
@@ -1195,6 +1277,53 @@ class ProviderStore(
     fun signOutOpenRouter(providerId: String) {
         if (provider(providerId)?.signIn == OPENROUTER_SIGN_IN && providerId in keys) setKey(providerId, "")
     }
+
+    /**
+     * Trải một key OpenRouter ra các mục model «khôn» (Phòng AI v3.6): người dùng chỉ dán key MỘT lần,
+     * app tự tạo các mục anh em — mỗi mục là một nhà cung cấp riêng mang CÙNG key đó, ghim đúng một
+     * model trong bảng [OPENROUTER_FAN_OUT] (danh sách model đã nhớ của mục chỉ gồm model đó, nên
+     * [poolConfigFor] luôn dựng đúng model đó cho mục). Nhờ vậy chuỗi chính tự có Nemotron → Gemma
+     * để lùi xuống, người dùng không phải thêm tay từng mục model như trước nữa.
+     * Model nào không có trong danh sách vừa liệt kê bằng chính key này thì bỏ qua; model đã có mục
+     * mang đúng key này (mục anh em đúng tên, hoặc một cấu hình đã lưu của bất kỳ mục nào mang key)
+     * thì không tạo trùng — dán lại cùng key là vô hại.
+     * Thêm nữa: nhà gốc đang giữ vai CHÍNH bằng một model ngoài bảng khôn (model tí hon do app tự
+     * chọn hồi trước) thì vai chính được trỏ lại sang model khôn đầu bảng nếu model đó có trong danh
+     * sách — thứ tự phục vụ thành khôn-trước như người dùng chốt, kể cả với mục đã tạo từ trước.
+     * Trả về số mục anh em đã tạo mới.
+     */
+    @Synchronized
+    fun fanOutOpenRouter(apiKey: String, listed: List<ListedModel>): Int {
+        val key = apiKey.trim()
+        if (key.isEmpty()) return 0
+        val base = ProviderConnection.normalizeUrl(OPENROUTER_BASE_URL)
+        val holder = _providers.value.firstOrNull {
+            it.signIn == null && ProviderConnection.normalizeUrl(it.baseUrl) == base && key in providerKeys(it.id)
+        } ?: return 0
+        val fanModels = OPENROUTER_FAN_OUT.map { it.first }
+        val top = OPENROUTER_FAN_OUT.first().first
+        val mainCfg = configFor(ModelRole.Main)?.takeIf { it.providerId == holder.id }
+        if (mainCfg != null && mainCfg.model !in fanModels && listed.any { it.id == top }) {
+            val caps = ModelOptions.ofProvider(holder, _configs.value).firstOrNull { it.id == top }?.capabilities
+                ?: ModelOptions.baseOf(holder)
+            use(ModelRole.Main, holder.id, top, caps)
+        }
+        var created = 0
+        for ((model, siblingName) in OPENROUTER_FAN_OUT) {
+            val lm = listed.firstOrNull { it.id == model } ?: continue
+            if (fanOutCovered(key, base, model, siblingName)) continue
+            connect(siblingName, ProviderConfig.Kind.OpenAiCompat, OPENROUTER_BASE_URL, key, listOf(lm))
+            created++
+        }
+        return created
+    }
+
+    /** Model [model] của bảng trải OpenRouter đã có mục nào mang đúng [key] này chưa: mục anh em đúng tên [siblingName], hoặc một cấu hình đã lưu ứng với model đó của bất kỳ mục nào mang key. */
+    private fun fanOutCovered(key: String, base: String, model: String, siblingName: String): Boolean =
+        _providers.value.any { p ->
+            p.signIn == null && ProviderConnection.normalizeUrl(p.baseUrl) == base && key in providerKeys(p.id) &&
+                (p.name == siblingName || _configs.value.any { it.providerId == p.id && it.model == model })
+        }
 
     /**
      * 刷新换到的令牌写回去,前提是这期间存着的登录没变:换令牌要等网络,用户可能已经退出或重新登录,
@@ -1659,6 +1788,19 @@ class ProviderStore(
         /** 用 OpenRouter 账号授权的服务商:名字和预设一样,[Provider.signIn] 标成这个。 */
         const val OPENROUTER_NAME = "OpenRouter"
         const val OPENROUTER_SIGN_IN = "openrouter"
+
+        /** Địa chỉ API của OpenRouter (khớp mẫu có sẵn cùng tên trong [ProviderPresets] và [OpenRouterAuth]). */
+        internal const val OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+        /**
+         * Các model free «khôn» mà một key OpenRouter được tự trải ra khi dán key (Phòng AI v3.6, xem
+         * [fanOutOpenRouter]): model → tên mục nhà cung cấp anh em. Thứ tự trong bảng LÀ thứ tự ưu tiên:
+         * nó cũng là thứ tự các mục này đứng trong chuỗi dự phòng của mô hình chính (xem [failoverChain]).
+         */
+        internal val OPENROUTER_FAN_OUT: List<Pair<String, String>> = listOf(
+            "nvidia/nemotron-3-ultra-550b-a55b:free" to "OpenRouter · Nemotron",
+            "google/gemma-4-31b-it:free" to "OpenRouter · Gemma",
+        )
         /** 出错说明里怎么称呼这家的登录。 */
         private const val XAI_ACCOUNT = "xAI"
 

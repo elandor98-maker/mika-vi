@@ -88,6 +88,7 @@
     <string name="paste_key_invalid">%1$s từ chối key này: %2$s</string>
     <string name="paste_key_added">Đã thêm key số %1$d của %2$s. Model mặc định: %3$s.</string>
     <string name="paste_key_no_model">Đã thêm key số %1$d của %2$s, nhưng chưa tìm được model chat dùng được. Anh chọn một model trong danh sách của hãng này giúp em.</string>
+    <string name="paste_key_unverified">Đã lưu key số %1$d của %2$s, nhưng gọi thử các model chính đều thất bại nên chưa gán vai. Key vẫn được lưu — anh kiểm tra trong mục của hãng ở bên dưới giúp em.</string>
     <string name="paste_key_role">Vai trò: %1$s.</string>
     <string name="paste_key_role_none">Chưa gán vai — key đã lưu; khi nào cần, anh chọn một model của hãng này ở danh sách bên dưới là dùng được.</string>
 </resources>

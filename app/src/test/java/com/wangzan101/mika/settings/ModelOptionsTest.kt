@@ -165,7 +165,8 @@ class ModelOptionsTest {
      * Gemini: ưu tiên «3.8-flash» trước (bản khôn/mới nhất chạy được free; hạn mức 20 lượt/ngày/tài khoản được
      * bù bằng vòng xoay nhiều key của người dùng), không có 3.8 mới tới flash-lite (nhẹ, ~500 lượt/ngày), rồi 3.6-flash;
      * Groq phải chọn gpt-oss-120b chứ không phải 20b (hai tên này ModelVersion đọc như nhau, trước đây toàn theo thứ tự list nên chọn nhầm 20b);
-     * OpenRouter phải chọn model «:free» thay vì model tính tiền đứng trước trong list.
+     * OpenRouter phải chọn model «:free» thay vì model tính tiền đứng trước trong list, và từ v3.6
+     * các model free khôn nhất (Nemotron 550B → Gemma 31B) đứng trước mọi model free còn lại.
      */
     @Test fun preferredTokensPickTheRecommendedDefault() {
         fun preset(label: String) = ProviderPresets.all.single { it.label == label }
@@ -191,10 +192,20 @@ class ModelOptionsTest {
             pick("Groq", listOf(ListedModel("openai/gpt-oss-20b"), ListedModel("openai/gpt-oss-120b"), ListedModel("llama-3.3-70b-versatile"))),
         )
         val openRouter = preset("OpenRouter")
-        assertEquals(listOf(":free"), openRouter.preferredTokens)
+        // v3.6 (smart-first): các model free KHÔN nhất đứng trước, rồi mới tới mọi model «:free» còn lại
+        assertEquals(listOf("nemotron-3-ultra-550b", "gemma-4-31b", ":free"), openRouter.preferredTokens)
         assertEquals(
             "meta-llama/llama-3.3-70b-instruct:free",
             pick("OpenRouter", listOf(ListedModel("anthropic/claude-sonnet-4.5"), ListedModel("meta-llama/llama-3.3-70b-instruct:free"))),
+        )
+        // Có model khôn free thì model tí hon (liquid/lfm) không bao giờ được tự chọn làm chính
+        assertEquals(
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            pick("OpenRouter", listOf("liquid/lfm-3-1.7b:free", "google/gemma-4-31b-it:free", "nvidia/nemotron-3-ultra-550b-a55b:free").map { ListedModel(it) }),
+        )
+        assertEquals(
+            "google/gemma-4-31b-it:free",
+            pick("OpenRouter", listOf("liquid/lfm-3-1.7b:free", "google/gemma-4-31b-it:free").map { ListedModel(it) }),
         )
         // Hãng không có preferredTokens: hành vi y như cũ (theo họ + phiên bản)
         assertEquals(emptyList<String>(), preset("DeepSeek").preferredTokens)

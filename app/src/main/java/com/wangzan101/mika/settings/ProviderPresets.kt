@@ -32,7 +32,9 @@ data class ProviderPreset(
      * Chỉ điền khi «phiên bản mới nhất» KHÔNG phải lựa chọn tốt nhất cho người dùng free, ví dụ
      * Gemini: bản flash thường mới nhất chỉ có ~20 lượt free/ngày, trong khi flash-lite ~500 lượt/ngày
      * lại nhanh nhất; Groq: gpt-oss-120b khôn hơn hẳn 20b dù «phiên bản» đọc như nhau;
-     * OpenRouter: phải ưu tiên model «:free» để khỏi chọn nhầm model tính tiền.
+     * OpenRouter: các model free KHÔN nhất đứng trước (Nemotron 550B rồi Gemma 31B — cùng bảng với
+     * [ProviderStore.OPENROUTER_FAN_OUT]), sau đó mới tới mọi model «:free» còn lại để khỏi chọn nhầm
+     * model tính tiền; model tí hon (họ liquid/lfm…) không bao giờ được tự chọn khi còn model khôn.
      * Để trống thì giữ nguyên cách xếp cũ (theo họ model + phiên bản).
      */
     val preferredTokens: List<String> = emptyList(),
@@ -81,7 +83,7 @@ object ProviderPresets {
         // Key 是控制台生成的 bce-v3/… 那一串,照 Bearer 发
         ProviderPreset("百度千帆", ProviderConfig.Kind.OpenAiCompat, "https://qianfan.baidubce.com/v2", caps(), familyTokens = listOf("ernie")),
         ProviderPreset("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", caps(),
-            preferredTokens = listOf(":free")),
+            preferredTokens = listOf("nemotron-3-ultra-550b", "gemma-4-31b", ":free")),
         ProviderPreset("Requesty", ProviderConfig.Kind.OpenAiCompat, "https://router.requesty.ai/v1", caps()),
         // 订阅制,一个 Key 用多家模型;各模型走哪种协议、哪个地址由模型列表逐个写明,这里的接口类型只是没写明时的退路。
         // 每个请求都要带对话的会话号,不带就拒绝(HTTP 400)

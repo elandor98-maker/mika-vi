@@ -88,6 +88,7 @@
     <string name="paste_key_invalid">%1$s rejected this key: %2$s</string>
     <string name="paste_key_added">Added key #%1$d for %2$s. Default model: %3$s.</string>
     <string name="paste_key_no_model">Added key #%1$d for %2$s, but no usable chat model was found. Pick one from the provider’s model list.</string>
+    <string name="paste_key_unverified">Saved key #%1$d for %2$s, but a test call to each of its top models failed, so no role was assigned yet. The key stays saved — check it under the provider below.</string>
     <string name="paste_key_role">Role: %1$s.</string>
     <string name="paste_key_role_none">Not assigned a role yet — the key is saved; pick one of this provider’s models below whenever you need it.</string>
 </resources>

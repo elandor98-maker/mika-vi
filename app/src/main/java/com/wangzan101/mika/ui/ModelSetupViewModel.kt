@@ -654,8 +654,12 @@ class ModelSetupViewModel(
         _state.update { it.copy(pasteBusy = false, pasteNote = tr(R.string.paste_key_unknown)) }
     }
 
-    /** Phần ghi xuống storage của [submitPasteKey]: tạo/thêm nhà + key, chọn model mặc định, gán vai. Trả về câu kết quả. */
-    private fun finishPasteKey(preset: ProviderPreset, key: String, models: List<ListedModel>): String {
+    /**
+     * Phần ghi xuống storage của [submitPasteKey]: tạo/thêm nhà + key, chọn model mặc định, KIỂM CHỨNG
+     * model đó bằng một lần gọi thật (xem [verifyPasteModel]), gán vai. Trả về câu kết quả.
+     * Key là OpenRouter thì sau đó còn trải key ra các mục model khôn (xem [ProviderStore.fanOutOpenRouter]).
+     */
+    private suspend fun finishPasteKey(preset: ProviderPreset, key: String, models: List<ListedModel>): String {
         val existing = PasteKey.existingProvider(store, preset)
         val keyNo: Int
         if (existing == null) {
@@ -670,7 +674,7 @@ class ModelSetupViewModel(
         }
         val fresh = PasteKey.existingProvider(store, preset) ?: return tr(R.string.paste_key_invalid, preset.label, "")
         val allOptions = ModelOptions.ofProvider(fresh, store.list())
-        val model = ModelOptions.defaultMain(allOptions.filter { o -> !ModelOptions.looksNonChat(o) }, preset.familyTokens, preset.preferredTokens)
+        var model = ModelOptions.defaultMain(allOptions.filter { o -> !ModelOptions.looksNonChat(o) }, preset.familyTokens, preset.preferredTokens)
             ?: return tr(R.string.paste_key_no_model, keyNo, preset.label)
         val serving = ModelRole.entries.firstOrNull { r -> store.configFor(r)?.providerId == fresh.id }
         val role = serving ?: when {
@@ -679,10 +683,86 @@ class ModelSetupViewModel(
             store.roles.value.vision == RoleChoice.Off -> ModelRole.Vision
             else -> null
         }
-        if (role != null && role != serving) use(role, fresh, model, allOptions)
+        if (role != null && role != serving) {
+            when (val v = verifyPasteModel(preset, key, fresh, allOptions, model)) {
+                is PasteVerifyResult.Verified -> {
+                    model = v.model
+                    store.markVerified(fresh.id, model)
+                }
+                is PasteVerifyResult.Unverified -> model = v.model
+                PasteVerifyResult.AllFailed -> return tr(R.string.paste_key_unverified, keyNo, preset.label)
+            }
+            use(role, fresh, model, allOptions)
+        }
+        if (ProviderConnection.normalizeUrl(preset.baseUrl) == ProviderConnection.normalizeUrl(ProviderStore.OPENROUTER_BASE_URL)) {
+            store.fanOutOpenRouter(key, models)
+        }
         val base = tr(R.string.paste_key_added, keyNo, preset.label, model)
         return if (role != null) base + " " + tr(R.string.paste_key_role, ModelsCopy.roleLabel(role))
         else base + " " + tr(R.string.paste_key_role_none)
+    }
+
+    /** Kết quả kiểm chứng model tự chọn khi dán key (v3.6): đã gọi thử thành công, giữ model đã chọn dù chưa kiểm chứng được (lỗi hạ tầng), hoặc mọi ứng viên đều sập vì lỗi phía model. */
+    private sealed interface PasteVerifyResult {
+        data class Verified(val model: String) : PasteVerifyResult
+        data class Unverified(val model: String) : PasteVerifyResult
+        data object AllFailed : PasteVerifyResult
+    }
+
+    /**
+     * Kiểm chứng model tự chọn của ô dán key bằng lần gọi THẬT (Phòng AI v3.6): liệt kê được model
+     * không có nghĩa là gọi được — key «sống giả» liệt kê qua nhưng gọi thật bị từ chối quyền trên
+     * đúng model tự chọn, và cả chuỗi key sập theo trong vài giây. Model được chọn sập vì lỗi PHÍA
+     * MODEL (xem [probePasteCandidate]) thì tự thử model ứng viên kế tiếp theo đúng thứ tự
+     * [ModelOptions.candidates], tối đa [PASTE_VERIFY_CANDIDATES] model; model nào trả lời được thì
+     * chốt model đó. Mọi ứng viên đều sập vì lỗi phía model → [PasteVerifyResult.AllFailed] (key vẫn
+     * được lưu, không gán vai). Ứng viên đầu tiên kẹt lỗi hạ tầng → [PasteVerifyResult.Unverified]:
+     * giữ model đã chọn như lệ cũ và KHÔNG ghi «đã kiểm chứng» cho nó.
+     */
+    private suspend fun verifyPasteModel(
+        preset: ProviderPreset, key: String, provider: Provider, options: List<ModelOption>, picked: String,
+    ): PasteVerifyResult {
+        val chat = options.filter { o -> !ModelOptions.looksNonChat(o) }
+        val ordered = (listOf(picked) + ModelOptions.candidates(chat, preset.familyTokens, preset.preferredTokens))
+            .distinct().take(PASTE_VERIFY_CANDIDATES)
+        for ((i, model) in ordered.withIndex()) {
+            when (probePasteCandidate(preset, key, provider, model, options)) {
+                true -> return PasteVerifyResult.Verified(model)
+                false -> Unit // lỗi phía model: thử ứng viên kế tiếp
+                null -> return if (i == 0) PasteVerifyResult.Unverified(picked) else PasteVerifyResult.AllFailed
+            }
+        }
+        return PasteVerifyResult.AllFailed
+    }
+
+    /**
+     * Gọi thử một model ứng viên khi dán key: true = model trả lời được bằng chính key này;
+     * false = lỗi PHÍA MODEL (key không có quyền với model đó / model không còn / không gọi được
+     * công cụ / máy chủ riêng của model đó sập / hết lượt riêng của model) — thử model kế tiếp;
+     * null = lỗi hạ tầng (mạng, proxy, trả lời không đọc được, quá giờ) — không nói lên điều gì về
+     * model nên không kết luận; ở ứng viên đầu tiên thì nơi gọi giữ model đã chọn như lệ cũ, vì lỗi
+     * hạ tầng nhất thời không được chặn việc lưu key + gán vai (kiểm tra key toàn cục lúc mở app
+     * sẽ phân loại lại sau).
+     */
+    private suspend fun probePasteCandidate(
+        preset: ProviderPreset, key: String, provider: Provider, model: String, options: List<ModelOption>,
+    ): Boolean? {
+        val caps = options.firstOrNull { it.id == model }?.capabilities ?: ModelOptions.baseOf(provider)
+        val endpoint = provider.models?.firstOrNull { it.id == model }?.endpoint
+        val result = try {
+            withContext(io) { withTimeout(PROBE_TIMEOUT_MS) { store.probe(preset.kind, preset.baseUrl, key, preset.sessionHeader, model, endpoint, caps) } }
+        } catch (e: TimeoutCancellationException) {
+            return null
+        }
+        return when (result) {
+            ProbeResult.ToolCalled, ProbeResult.NoToolCall -> true
+            is ProbeResult.Failed -> when (result.error) {
+                is ModelError.Auth, is ModelError.ModelNotFound, is ModelError.ModelNotAvailable,
+                is ModelError.ToolsUnsupported, is ModelError.Server, is ModelError.RateLimited,
+                is ModelError.QuotaExceeded -> false
+                else -> null
+            }
+        }
     }
 
     /**
@@ -1250,6 +1330,9 @@ class ModelSetupViewModel(
 
         /** 「测试并保存」有列表时至多试几个模型:先试的那个,加没通过时接着试的 2 个。 */
         const val PROBE_CANDIDATES = 3
+
+        /** Ô dán key kiểm chứng model tự chọn bằng lần gọi thật: tối đa thử chừng này model ứng viên (v3.6). */
+        const val PASTE_VERIFY_CANDIDATES = 3
 
         /** 自定义服务商的名字最多几个字(服务商列表一行放得下)。 */
         const val MAX_NAME = 32

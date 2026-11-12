@@ -1399,14 +1399,23 @@ class ProviderStoreTest {
 
     @Test fun knownDeadKeyIsSkippedFromTheFirstAttempt() = runTest {
         val attempts = mutableListOf<String?>()
-        var listerResult: (String?) -> ModelListResult = { ModelListResult.Ok(listOf(ListedModel("m1"))) }
+        // v3.6: nhà đã có model cấu hình thì kiểm tra trước GỌI THẬT từng key — lỗi giả lập theo key
+        // ngay tại lần gọi (thay cho đường liệt kê của v3.5): k1 chết xác thực, k2 bị giới hạn theo phút.
+        var generateError: (String?) -> ModelError? = { key ->
+            when (key) {
+                "k1" -> ModelError.Auth()
+                "k2" -> ModelError.RateLimited(null)
+                else -> null
+            }
+        }
         val s = ProviderStore(
             tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
-            modelLister = { _, _, apiKey, _ -> listerResult(apiKey) },
+            modelLister = { _, _, _, _ -> ModelListResult.Ok(listOf(ListedModel("m1"))) },
             modelFactory = { cfg, apiKey, _, _ ->
                 object : ChatModel {
                     override val capabilities: Capabilities = cfg.capabilities
                     override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                        generateError(apiKey)?.let { throw it }
                         attempts += apiKey
                         return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
                     }
@@ -1418,20 +1427,17 @@ class ProviderStoreTest {
         s.use(ModelRole.Main, p.id, "m1", none)
 
         // Kiểm tra trước: k1 chết vì xác thực (cổng Dead), k2 bị giới hạn theo phút (cổng Cooling)
-        listerResult = { key ->
-            when (key) {
-                "k1" -> ModelListResult.Failed(ListFailure.Auth)
-                else -> ModelListResult.Failed(ListFailure.RateLimited)
-            }
-        }
         s.checkAllKeys()
-        // k1 bị bỏ qua hẳn; k2 đang cooldown nhưng là mắt xích duy nhất còn lại nên được thử và chạy ngon
+        // k1 bị bỏ qua hẳn; k2 đang cooldown nhưng là mắt xích duy nhất còn lại nên được thử và chạy ngon.
+        // Bộ đếm chỉ tính lần gọi của tác vụ (đợt kiểm tra trước cũng đi qua modelFactory này).
+        attempts.clear()
+        generateError = { null }
         s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
         assertEquals(listOf("k2"), attempts)
 
         // Cả hai key đều chết: chuỗi dừng ngay bằng tín hiệu «tất cả key đều chết», không thử key nào nữa
         attempts.clear()
-        listerResult = { ModelListResult.Failed(ListFailure.Auth) }
+        generateError = { ModelError.Auth() }
         s.checkAllKeys()
         try {
             s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
@@ -1440,6 +1446,185 @@ class ProviderStoreTest {
             // đúng tín hiệu
         }
         assertTrue(attempts.isEmpty())
+    }
+
+    /** v3.6 (mục 2): nhà đã có model cấu hình thì kiểm tra trước phải GỌI THẬT — key «sống giả» (liệt kê qua nhưng gọi bị từ chối quyền) bị ghi chết ngay, không đợi tới lúc chạy việc. */
+    @Test fun preCheckUsesRealCallWhenAModelIsConfigured() = runTest {
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelLister = { _, _, _, _ -> ModelListResult.Ok(listOf(ListedModel("m1"))) },
+            modelFactory = { cfg, apiKey, _, _ ->
+                object : ChatModel {
+                    override val capabilities: Capabilities = cfg.capabilities
+                    override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                        if (apiKey == "bad") throw ModelError.Auth()
+                        return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+                    }
+                }
+            },
+        )
+        val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "bad", listOf(ListedModel("m1")))
+        assertEquals(2, s.appendProviderKey(p.id, "good"))
+        s.use(ModelRole.Main, p.id, "m1", none)
+
+        assertEquals(2, s.checkAllKeys())
+        val st = s.keyStatuses.value[p.id]!!
+        // Đường liệt kê nói cả hai key đều sống; lần gọi thật mới lộ key đầu đã chết
+        assertEquals("Auth", st[0].lastErrorKind)
+        assertNull(st[1].lastErrorKind)
+    }
+
+    /** v3.6 (mục 1): nhà cloud đã nối nhưng KHÔNG giữ vai nào vẫn tự vào chuỗi CHÍNH làm dự phòng — nhà chính chết là tự lùi xuống, khỏi chuyển tay. */
+    @Test fun unassignedConnectedProviderJoinsMainChainAsFallback() = runTest {
+        val attempts = mutableListOf<String>()
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelFactory = { cfg, _, _, _ ->
+                object : ChatModel {
+                    override val capabilities: Capabilities = cfg.capabilities
+                    override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                        attempts += cfg.providerId
+                        if (cfg.model == "dead-m") throw ModelError.Auth()
+                        return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+                    }
+                }
+            },
+        )
+        val a = s.connect("A", ProviderConfig.Kind.OpenAiCompat, "https://a.test/v1", "ka", listOf(ListedModel("dead-m")))
+        val b = s.connect("B", ProviderConfig.Kind.OpenAiCompat, "https://b.test/v1", "kb", listOf(ListedModel("m1"), ListedModel("m2")))
+        s.use(ModelRole.Main, a.id, "dead-m", none)
+
+        // B không giữ vai nào; trước v3.6 tác vụ chết theo A, nay tự lùi xuống B
+        // (mắt xích của B tổng hợp từ danh sách model đã nhớ của nó: m1 đứng đầu)
+        s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        assertEquals(listOf(a.id, b.id), attempts)
+    }
+
+    /** v3.6 (mục 1): đoạn pool CHỈ nối vào chuỗi Chính — chuỗi Nhẹ giữ nguyên (chỉ các cấu hình có vai). Hai nửa dùng hai store riêng: lỗi xác thực ghi ở nửa này sẽ đóng cổng Dead cho nửa kia. */
+    @Test fun poolProvidersDoNotJoinLightChain() = runTest {
+        val attempts = mutableListOf<String>()
+        fun scenario(dir: java.io.File): Triple<ProviderStore, List<String>> {
+            val s = ProviderStore(
+                dir, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+                modelFactory = { cfg, _, _, _ ->
+                    object : ChatModel {
+                        override val capabilities: Capabilities = cfg.capabilities
+                        override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                            attempts += cfg.providerId
+                            if (cfg.model == "ok-m") return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+                            throw ModelError.Auth()
+                        }
+                    }
+                },
+            )
+            val a = s.connect("A", ProviderConfig.Kind.OpenAiCompat, "https://a.test/v1", "ka", listOf(ListedModel("dead-a")))
+            val b = s.connect("B", ProviderConfig.Kind.OpenAiCompat, "https://b.test/v1", "kb", listOf(ListedModel("dead-b")))
+            val c = s.connect("C", ProviderConfig.Kind.OpenAiCompat, "https://c.test/v1", "kc", listOf(ListedModel("ok-m")))
+            s.use(ModelRole.Main, a.id, "dead-a", none)
+            s.use(ModelRole.Light, b.id, "dead-b", none)
+            return Triple(s, listOf(a.id, b.id, c.id))
+        }
+
+        // Chuỗi Nhẹ = [B, A] (vai Nhẹ + vai Chính như cũ), C không được mượn → sập, C không bị gọi
+        val (s1, ids1) = scenario(tmp.newFolder("light"))
+        try {
+            s1.modelFor(ModelRole.Light)!!.complete("s", emptyList(), emptyList())
+            fail("chuỗi Nhẹ không có nhà sống thì phải sập")
+        } catch (e: ModelError.Auth) {
+            // đúng: lỗi cuối của chuỗi có vai
+        }
+        assertEquals(listOf(ids1[1], ids1[0]), attempts)
+
+        // Chuỗi Chính có thêm C ở cuối hàng pool → lùi xuống C và hoàn thành
+        attempts.clear()
+        val (s2, ids2) = scenario(tmp.newFolder("main"))
+        s2.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        assertEquals(ids2, attempts)
+    }
+
+    /** v3.6 (mục 3): dán một key OpenRouter → tự tạo hai mục anh em ghim model khôn, cùng key; dán lại không tạo trùng. */
+    @Test fun openRouterFanOutCreatesPinnedSmartSiblingsOnce() {
+        val s = store()
+        val listed = listOf(
+            ListedModel("nvidia/nemotron-3-ultra-550b-a55b:free"),
+            ListedModel("google/gemma-4-31b-it:free"),
+            ListedModel("liquid/lfm-3-1.7b:free"),
+        )
+        s.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", "sk-or-x", listed)
+
+        assertEquals(2, s.fanOutOpenRouter("sk-or-x", listed))
+        val siblings = s.providers.value.filter { it.name.startsWith("OpenRouter ·") }
+        assertEquals(listOf("OpenRouter · Nemotron", "OpenRouter · Gemma"), siblings.map { it.name })
+        // Mỗi mục anh em ghim đúng một model và mang cùng key với nhà gốc
+        assertEquals(listOf("nvidia/nemotron-3-ultra-550b-a55b:free"), siblings[0].models!!.map { it.id })
+        assertEquals(listOf("google/gemma-4-31b-it:free"), siblings[1].models!!.map { it.id })
+        assertEquals(listOf("sk-or-x"), s.providerKeys(siblings[0].id))
+        assertEquals(listOf("sk-or-x"), s.providerKeys(siblings[1].id))
+
+        // Dán lại cùng key: không tạo trùng mục nào
+        assertEquals(0, s.fanOutOpenRouter("sk-or-x", listed))
+        assertEquals(3, s.providers.value.count { it.baseUrl.contains("openrouter") })
+    }
+
+    /** v3.6 (mục 3): model khôn nào không có trong danh sách vừa liệt kê bằng key đó thì bỏ qua, không tạo mục chết. */
+    @Test fun openRouterFanOutSkipsModelsMissingFromTheLiveList() {
+        val s = store()
+        val listed = listOf(ListedModel("nvidia/nemotron-3-ultra-550b-a55b:free"))
+        s.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", "sk-or-x", listed)
+        assertEquals(1, s.fanOutOpenRouter("sk-or-x", listed))
+        assertEquals(listOf("OpenRouter · Nemotron"), s.providers.value.filter { it.name.startsWith("OpenRouter ·") }.map { it.name })
+    }
+
+    /** v3.6 (mục 3 + smart-first): nhà OpenRouter gốc đang giữ vai Chính bằng model tí hon tự chọn hồi trước → vai Chính trỏ lại model khôn đầu bảng ngay trên nhà gốc; model đó không tạo anh em trùng, Gemma vẫn được tạo. */
+    @Test fun openRouterFanOutRepointsTinyMainToTheTopSmartModel() {
+        val s = store()
+        val listed = listOf(
+            ListedModel("liquid/lfm-3-1.7b:free"),
+            ListedModel("nvidia/nemotron-3-ultra-550b-a55b:free"),
+            ListedModel("google/gemma-4-31b-it:free"),
+        )
+        val p = s.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", "sk-or-x", listed)
+        s.use(ModelRole.Main, p.id, "liquid/lfm-3-1.7b:free", none)
+
+        s.fanOutOpenRouter("sk-or-x", listed)
+
+        assertEquals("nvidia/nemotron-3-ultra-550b-a55b:free", s.configFor(ModelRole.Main)?.model)
+        assertEquals(p.id, s.configFor(ModelRole.Main)?.providerId)
+        assertEquals(listOf("OpenRouter · Gemma"), s.providers.value.filter { it.name.startsWith("OpenRouter ·") }.map { it.name })
+    }
+
+    /** v3.6 (mục 1 + 3, smart-first): trong đoạn pool của chuỗi Chính, các mục OpenRouter khôn đứng TRƯỚC nhà pool thường — kể cả khi nhà thường được nối sớm hơn. */
+    @Test fun poolChainPutsSmartOpenRouterBeforeOtherPoolProviders() = runTest {
+        val attempts = mutableListOf<String>()
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelFactory = { cfg, _, _, _ ->
+                object : ChatModel {
+                    override val capabilities: Capabilities = cfg.capabilities
+                    override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                        attempts += cfg.providerId
+                        if (cfg.model == "ok-m") return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+                        throw ModelError.Auth()
+                    }
+                }
+            },
+        )
+        val a = s.connect("A", ProviderConfig.Kind.OpenAiCompat, "https://a.test/v1", "ka", listOf(ListedModel("dead-a")))
+        val x = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "kx", listOf(ListedModel("ok-m")))
+        val orListed = listOf(
+            ListedModel("liquid/lfm-3-1.7b:free"),
+            ListedModel("nvidia/nemotron-3-ultra-550b-a55b:free"),
+            ListedModel("google/gemma-4-31b-it:free"),
+        )
+        val orp = s.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", "sk-or-x", orListed)
+        s.fanOutOpenRouter("sk-or-x", orListed)
+        val nemotron = s.providers.value.single { it.name == "OpenRouter · Nemotron" }
+        val gemma = s.providers.value.single { it.name == "OpenRouter · Gemma" }
+        s.use(ModelRole.Main, a.id, "dead-a", none)
+
+        s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        // Thứ tự thử: A (vai Chính) → nhà OpenRouter gốc (tổng hợp ra Nemotron) → Nemotron → Gemma → X thường nối trước nhưng xếp cuối đoạn pool
+        assertEquals(listOf(a.id, orp.id, nemotron.id, gemma.id, x.id), attempts)
     }
 
     @Test fun slowCallIsCutAndNextLinkServes() = runTest {
