@@ -1,6 +1,7 @@
 package com.wangzan101.mika.settings
 
 import android.content.Context
+import com.wangzan101.mika.core.agent.AgentLoop
 import com.wangzan101.mika.core.agent.ContextLimits
 import com.wangzan101.mika.core.chatgpt.ChatGptAuth
 import com.wangzan101.mika.core.chatgpt.ChatGptSession
@@ -41,12 +42,17 @@ import com.wangzan101.mika.core.usage.metered
 import com.wangzan101.mika.local.LocalLlamaModel
 import com.wangzan101.mika.local.LocalModelStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -363,6 +369,27 @@ class ProviderStore(
     /** Câu thông báo mỗi khi chuỗi dự phòng của mô hình chính chuyển key vì hết lượt / key chết (xem [failoverNoticeText]). */
     val failoverNotices: SharedFlow<String> = _failoverNotices.asSharedFlow()
 
+    private val _chainWaitNote = MutableStateFlow<String?>(null)
+    /**
+     * Câu chờ hiện trên màn hình trò chuyện trong lúc chuỗi mô hình chính đang chờ cooldown để vòng lại
+     * (v3.5, cơ chế không dừng): đúng câu [AgentLoop.RETRY_WAIT_NOTE] của đường thử lại ở :core;
+     * null = không phải đang chờ. Đặt khi chuỗi bắt đầu một lần chờ dài, xoá khi mắt xích chính được gọi lại / chạy ngon.
+     */
+    val chainWaitNote: StateFlow<String?> = _chainWaitNote.asStateFlow()
+
+    private val _checkingKeys = MutableStateFlow(false)
+    /** Đang kiểm tra trước toàn bộ key hay không (v3.5): nút «Kiểm tra tất cả key» trong Cài đặt đọc ở đây. */
+    val checkingKeys: StateFlow<Boolean> = _checkingKeys.asStateFlow()
+
+    /** Chỉ một đợt kiểm tra key chạy tại một thời điểm (nút bấm tay và đợt tự động khi mở app dùng chung). */
+    private val keyCheckMutex = Mutex()
+
+    /** Mốc đợt kiểm tra key gần nhất (tự động hay bấm tay đều tính), cho [autoCheckKeys] giãn cách. */
+    @Volatile private var lastKeyCheckAtMs = 0L
+
+    /** Đợt kiểm tra key tự động chạy trên phạm vi này (ngoài đường chat), sống theo tiến trình như chính store. */
+    private val autoCheckScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     init {
         dir.mkdirs()
         load()
@@ -420,8 +447,20 @@ class ProviderStore(
         val now = System.currentTimeMillis()
         return all.mapIndexed { i, key ->
             val isServing = serving != null && serving.providerId == providerId && serving.keyIndex == i + 1
-            KeyRowUi(i + 1, keyTail(key), keyChipUi(statuses.getOrNull(i), isServing, now))
+            KeyRowUi(i + 1, keyTail(key), keyChipUi(statuses.getOrNull(i), isServing, now, dailyResetHint(p)))
         }
+    }
+
+    /**
+     * Giờ lượt miễn phí theo ngày của TỪNG hãng mở lại (v3.5-C; giờ Việt Nam): Gemini reset theo nửa đêm
+     * giờ Thái Bình Dương ≈ 15:00; OpenRouter reset 00:00 UTC = 07:00. Hãng chưa rõ giờ reset thì giữ
+     * lệ cũ "~15:00" trong [keyChipUi].
+     */
+    private fun dailyResetHint(p: Provider): String = when {
+        p.kind == ProviderConfig.Kind.Gemini -> "sống lại lúc 15:00"
+        p.name.contains("OpenRouter", ignoreCase = true) || p.baseUrl.contains("openrouter", ignoreCase = true) ->
+            "sống lại lúc 07:00"
+        else -> "mở lại ~15:00"
     }
 
     /** Đọc trạng thái key đã lưu; file hỏng/thiếu thì bỏ qua. Phần vượt quá số key hiện còn (key đã thay/xoá) bị cắt. */
@@ -500,6 +539,97 @@ class ProviderStore(
     /** Chuỗi dự phòng của mô hình chính vừa chuyển key vì hết lượt / key chết: phát câu thông báo cho màn hình trò chuyện. */
     private fun noteKeySwitch(from: ServingLink, to: ServingLink, error: ModelError) {
         failoverNoticeText(from, to, error)?.let { _failoverNotices.tryEmit(it) }
+    }
+
+    // ---------- Kiểm tra trước key (Phòng AI v3.5: «check sẵn») ----------
+
+    /** Kết quả kiểm tra một key: sống, sập (kèm lỗi thật), hoặc không kết luận được (lỗi cấu hình/mạng trung gian — giữ nguyên trạng thái đã ghi). */
+    private sealed interface KeyCheck {
+        data object Alive : KeyCheck
+        data class Failed(val error: ModelError) : KeyCheck
+        data object Inconclusive : KeyCheck
+    }
+
+    /**
+     * Kiểm tra TỪNG key đã lưu của mọi hãng dùng API key (hãng đăng nhập bằng tài khoản bỏ qua,
+     * đúng quy tắc liệt kê của [keyRows]): mỗi key đúng MỘT lần gọi liệt kê mô hình rất nhẹ;
+     * hãng nào không cho liệt kê thì thay bằng một lần gọi thử tối thiểu ([probeKey]).
+     * Kết quả ghi vào đúng kho trạng thái mà lúc chạy vẫn dùng ([updateKeyStatus]): sống → xoá lỗi/cooldown
+     * đã ghi; hết lượt → đúng loại lỗi + cooldown theo bảng [keyCooldownMs]; key chết (401) → lỗi xác thực.
+     * Nhờ vậy chip trong Cài đặt hiện đúng tình trạng TRƯỚC khi chạy việc, và cổng [gateFor] cho chuỗi
+     * dự phòng bỏ qua key đã biết chết ngay từ lần thử đầu tiên. Trả về số key đã kiểm tra;
+     * đang có đợt kiểm tra khác chạy thì thôi (trả 0).
+     */
+    suspend fun checkAllKeys(): Int {
+        if (!keyCheckMutex.tryLock()) return 0
+        lastKeyCheckAtMs = System.currentTimeMillis()
+        _checkingKeys.value = true
+        try {
+            var checked = 0
+            for (p in _providers.value) {
+                if (keyRows(p.id).isEmpty()) continue
+                val all = providerKeys(p.id).filter { it.isNotBlank() }
+                for ((i, key) in all.withIndex()) {
+                    recordKeyCheck(p.id, i + 1, validateKey(p, key))
+                    checked++
+                }
+            }
+            return checked
+        } finally {
+            _checkingKeys.value = false
+            keyCheckMutex.unlock()
+        }
+    }
+
+    /**
+     * Tự kiểm tra key khi mở app (v3.5): chạy nền ngoài đường chat; bỏ qua nếu đợt kiểm tra gần nhất
+     * (tự động hay bấm tay) cách đây chưa tới [AUTO_CHECK_MIN_INTERVAL_MS] — mở/đóng app liên tục không gọi thừa.
+     */
+    fun autoCheckKeys() {
+        if (System.currentTimeMillis() - lastKeyCheckAtMs < AUTO_CHECK_MIN_INTERVAL_MS) return
+        autoCheckScope.launch { runCatching { checkAllKeys() } }
+    }
+
+    /** Một key còn sống hay không, nhìn qua đường liệt kê mô hình của chính hãng đó (rẻ, không tốn lượt gọi mô hình). */
+    private suspend fun validateKey(p: Provider, key: String): KeyCheck =
+        when (val r = listModels(p.kind, p.baseUrl, key, p.sessionHeader)) {
+            is ModelListResult.Ok -> KeyCheck.Alive
+            is ModelListResult.Failed -> when (r.reason) {
+                ListFailure.Auth -> KeyCheck.Failed(ModelError.Auth())
+                ListFailure.Quota -> KeyCheck.Failed(ModelError.QuotaExceeded())
+                ListFailure.RateLimited -> KeyCheck.Failed(ModelError.RateLimited(null))
+                ListFailure.Network, ListFailure.ProxyUnreachable -> KeyCheck.Failed(ModelError.Network())
+                ListFailure.Server -> KeyCheck.Failed(ModelError.Server(500))
+                ListFailure.NotSupported -> probeKey(p, key)
+                // Địa chỉ sai / trả lời không đọc được / proxy từ chối: không phải lỗi của key — không kết luận.
+                else -> KeyCheck.Inconclusive
+            }
+        }
+
+    /** Hãng không cho liệt kê mô hình: kiểm tra bằng một lần gọi thử tối thiểu với đúng key đó, dùng mô hình đã cấu hình của hãng. */
+    private suspend fun probeKey(p: Provider, key: String): KeyCheck {
+        val cfg = _configs.value.firstOrNull { it.providerId == p.id } ?: return KeyCheck.Inconclusive
+        return when (val r = probe(p.kind, p.baseUrl, key, p.sessionHeader, cfg.model, listedOf(cfg)?.endpoint, cfg.capabilities)) {
+            is ProbeResult.Failed -> KeyCheck.Failed(r.error)
+            else -> KeyCheck.Alive
+        }
+    }
+
+    /** Ghi kết quả kiểm tra trước của key số [index] (1-based): sống thì xoá lỗi/cooldown đã ghi; sập thì ghi loại lỗi + hạn cooldown (cùng bảng [keyCooldownMs] với lúc chạy). */
+    private fun recordKeyCheck(providerId: String, index: Int, result: KeyCheck) {
+        val now = System.currentTimeMillis()
+        when (result) {
+            KeyCheck.Inconclusive -> Unit
+            KeyCheck.Alive -> updateKeyStatus(providerId, index) {
+                it.copy(lastErrorKind = null, cooldownUntilMs = 0L)
+            }
+            is KeyCheck.Failed -> updateKeyStatus(providerId, index) {
+                it.copy(
+                    lastErrorKind = keyErrorKind(result.error), lastErrorAtMs = now,
+                    cooldownUntilMs = now + keyCooldownMs(result.error),
+                )
+            }
+        }
     }
 
     /**
@@ -783,18 +913,42 @@ class ProviderStore(
         // hết hạn mức/bị giới hạn, FailoverChatModel tự chuyển sang KEY KẾ TIẾP CỦA CÙNG NHÀ trước,
         // hết key của nhà đó mới sang nhà kế tiếp; thời gian "bỏ qua" (cooldown) của nó tính theo từng
         // mắt xích = từng key, và nhà chỉ có 1 key thì hành vi y hệt như trước.
-        val built = chain.flatMap { keyLinks(it, role, session) }
+        val built = chain.flatMap { cfg -> keyLinks(cfg, role, session).map { (m, link) -> Triple(m, link, cfg) } }
         // Kể cả chuỗi chỉ có MỘT mắt xích cũng bọc FailoverChatModel (nó ủy thác thẳng cho mắt xích đó,
         // hành vi gọi y hệt): nhờ vậy trạng thái key — đang chạy key nào, key nào vừa sập — luôn được
         // ghi nhận (v3.4), thay vì chỉ ghi khi có từ hai mắt xích trở lên.
+        // v3.5: mỗi mắt xích kèm CỔNG theo trạng thái key đã lưu (key chết bị bỏ qua từ lần thử đầu);
+        // chuỗi mô hình CHÍNH bật cơ chế không dừng (chờ cooldown rồi vòng lại thay vì dừng chờ người dùng),
+        // và báo câu chờ lên màn hình qua [chainWaitNote] — xoá câu chờ mỗi khi mắt xích chính lại được gọi / chạy ngon.
         return FailoverChatModel(
             built.map { it.first },
             linkIds = built.map { it.second },
-            onAttempt = { noteKeyAttempt(it, role) },
-            onServed = ::noteKeyServed,
+            linkGates = built.map { gateFor(it.third, it.second) },
+            neverStop = role == ModelRole.Main,
+            onAttempt = { link ->
+                if (role == ModelRole.Main) _chainWaitNote.value = null
+                noteKeyAttempt(link, role)
+            },
+            onServed = { link ->
+                if (role == ModelRole.Main) _chainWaitNote.value = null
+                noteKeyServed(link)
+            },
             onFailed = ::noteKeyFailed,
             onSwitch = if (role == ModelRole.Main) ::noteKeySwitch else { _, _, _ -> },
+            onWait = if (role == ModelRole.Main) { _chainWaitNote.value = AgentLoop.RETRY_WAIT_NOTE } else { _ -> },
         )
+    }
+
+    /**
+     * Cổng của một mắt xích theo trạng thái key ĐÃ LƯU (v3.5): key đã biết chết (lỗi xác thực) thì chuỗi
+     * bỏ qua hẳn cho tới khi kiểm tra trước xác nhận nó sống lại, hoặc người dùng thay cả danh sách key
+     * (đường thay key xoá trạng thái đã ghi). Hai nhà đăng nhập bằng tài khoản không có cổng:
+     * «key» của chúng là phiên đăng nhập, hết hạn thì đường đăng nhập lại tự lo.
+     */
+    private fun gateFor(cfg: ProviderConfig, link: ServingLink): LinkGate {
+        if (cfg.kind == ProviderConfig.Kind.ChatGpt || cfg.kind == ProviderConfig.Kind.Xai) return LinkGate.Ready
+        val status = _keyStatuses.value[link.providerId]?.getOrNull(link.keyIndex - 1) ?: return LinkGate.Ready
+        return linkGateOf(status, System.currentTimeMillis())
     }
 
     /** Các mắt xích của một cấu hình trong chuỗi dự phòng: mỗi key một mắt xích (theo thứ tự đã lưu), kèm danh tính mắt xích. */
@@ -1474,6 +1628,9 @@ class ProviderStore(
 
         /** 各家预设沿用的旧上下文默认值;预设改了默认后,存着这个值的配置由 [repairStaleContextDefaults] 跟上去。 */
         private const val LEGACY_DEFAULT_CONTEXT_TOKENS = 64_000
+
+        /** Kiểm tra key tự động khi mở app (v3.5): hai đợt tự kiểm tra cách nhau ít nhất chừng này. */
+        private const val AUTO_CHECK_MIN_INTERVAL_MS = 5 * 60_000L
 
         /** `uses` 里每个用途的 `use`:具体模型(另记 `config`)、用主模型、不用。旧版本的文件里只有 `roles`。 */
         private const val USE_MODEL = "model"

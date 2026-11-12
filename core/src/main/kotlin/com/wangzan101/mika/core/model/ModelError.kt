@@ -10,6 +10,17 @@ sealed class ModelError(message: String, cause: Throwable? = null) : Exception(m
     /** 这家服务商今天在本地已报告的用量达到预算；[providerName] 只用于给用户说明是哪一家。 */
     class DailyBudgetExceeded(val providerName: String, val limit: Long, val used: Long) : ModelError("Ngân sách Token hôm nay của nhà cung cấp đã dùng hết")
     class RateLimited(val retryAfterMs: Long?) : ModelError("Yêu cầu quá thường xuyên, hãy thử lại sau")
+    /**
+     * Phòng AI v3.5: MỌI mắt xích trong chuỗi dự phòng đều bị từ chối vì xác thực (key chết, bị thu hồi,
+     * hoặc đăng nhập hết hạn) — không còn key nào chạy được. Thử lại vô ích; phải thay key / đăng nhập lại.
+     * Chuỗi dự phòng ném lỗi này thay cho lỗi Auth của mắt xích cuối để màn hình nói rõ là TẤT CẢ key đều chết.
+     */
+    class AllKeysDead : ModelError("Tất cả các key đều bị từ chối (lỗi xác thực)")
+    /**
+     * Phòng AI v3.5: mọi key còn dùng được trong chuỗi dự phòng đều đã hết hạn mức NGÀY của nhà cung cấp
+     * (các key chết vì xác thực không tính). Chỉ còn cách chờ qua mốc reset lượt ngày (~15:00) hoặc thêm key khác.
+     */
+    class AllDailyQuotaExhausted : ModelError("Tất cả các key đều đã hết lượt hôm nay")
     class ContextTooLong : ModelError("Nội dung hội thoại vượt quá độ dài ngữ cảnh của mô hình")
     /**
      * 服务商那里没有这个模型(或地址不对,请求的接口不存在);[model] 是请求的模型名,不知道时为空。

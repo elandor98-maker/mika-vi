@@ -63,7 +63,9 @@ internal object StopRules {
 
 internal fun userReason(e: ModelError): String = when (e) {
     is ModelError.Auth -> "Dịch vụ mô hình đã từ chối yêu cầu: API Key không hợp lệ hoặc không có quyền. Hãy kiểm tra trong Cài đặt xem API Key đã điền đúng chưa và có quyền dùng mô hình này không."
+    is ModelError.AllKeysDead -> "Tất cả các key đã lưu đều bị nhà cung cấp từ chối (lỗi xác thực — key đã chết hoặc bị thu hồi). Hãy dán key mới trong Cài đặt › Mô hình rồi thử lại."
     is ModelError.QuotaExceeded -> "Hạn mức của tài khoản mô hình đã dùng hết, hãy kiểm tra số dư hoặc gói dịch vụ của tài khoản nhà cung cấp."
+    is ModelError.AllDailyQuotaExhausted -> "Tất cả các key đều đã hết lượt miễn phí của hôm nay. Lượt sẽ mở lại vào khoảng 15:00 (giờ reset của nhà cung cấp); hãy thử lại sau giờ đó, hoặc dán thêm key của tài khoản khác trong Cài đặt › Mô hình."
     is ModelError.TaskBudgetExceeded -> "Đã đạt giới hạn ngân sách ${e.limit} Token của tác vụ này, tác vụ chưa hoàn thành."
     is ModelError.DailyBudgetExceeded ->
         "Nhà cung cấp 「${e.providerName}」 đã đạt giới hạn ngân sách ${e.limit} Token của hôm nay, tác vụ chưa hoàn thành. Sẽ tự động khôi phục sau khi qua ngày mới theo giờ trên máy."

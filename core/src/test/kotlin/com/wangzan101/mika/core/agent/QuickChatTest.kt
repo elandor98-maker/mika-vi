@@ -58,4 +58,23 @@ class QuickChatTest {
         val s = QuickChat.systemPrompt("IDENTITY", "PRINCIPLES", "2026-11-11 09:30")
         assertTrue("IDENTITY" in s && "PRINCIPLES" in s && "2026-11-11 09:30" in s)
     }
+
+    @Test fun quickSystemPromptCarriesDeviceInfoWhenGiven() {
+        // v3.5-A: có thông tin máy thật thì đường nhanh cũng nói đúng tên máy
+        val s = QuickChat.systemPrompt("IDENTITY", "PRINCIPLES", "2026-11-11 09:30", "DEVICE LINE")
+        assertTrue("DEVICE LINE" in s)
+        // Không có: bộ lệnh giữ nguyên như cũ
+        assertFalse("DEVICE LINE" in QuickChat.systemPrompt("IDENTITY", "PRINCIPLES", "2026-11-11 09:30"))
+    }
+
+    @Test fun lookupBudgetOnlyCapsLiveInfoLookups() {
+        // v3.5-B: trong ngân sách thì chạy tiếp, bước đầu tiên vượt ngân sách mới bị chặn
+        assertFalse(QuickChat.lookupBudgetExceeded(TaskKind.LiveInfo, QuickChat.LIVE_INFO_STEP_CAP, toolsEscalated = false))
+        assertTrue(QuickChat.lookupBudgetExceeded(TaskKind.LiveInfo, QuickChat.LIVE_INFO_STEP_CAP + 1, toolsEscalated = false))
+        // Đã leo thang thành hành động thật lên điện thoại thì thả cap
+        assertFalse(QuickChat.lookupBudgetExceeded(TaskKind.LiveInfo, 99, toolsEscalated = true))
+        // Việc hành động và câu hỏi thường không bao giờ bị cap kiểu tra cứu
+        assertFalse(QuickChat.lookupBudgetExceeded(TaskKind.PhoneAction, 99, toolsEscalated = false))
+        assertFalse(QuickChat.lookupBudgetExceeded(TaskKind.Plain, 99, toolsEscalated = false))
+    }
 }

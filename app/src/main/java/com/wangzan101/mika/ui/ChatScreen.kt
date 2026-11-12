@@ -311,6 +311,11 @@ fun ChatScreen(
     val serving by servingFlow.collectAsState()
     var failoverNotice by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(providerStore) { providerStore?.failoverNotices?.collect { failoverNotice = it } }
+    // Câu chờ trong lúc chuỗi chính chờ cooldown để vòng lại (v3.5, cơ chế không dừng).
+    val waitNoteFlow = remember(providerStore) { providerStore?.chainWaitNote ?: MutableStateFlow<String?>(null) }
+    val chainWaitNote by waitNoteFlow.collectAsState()
+    // Mở app: tự kiểm tra key một lần cho biết sẵn key nào sống (store tự giãn cách, chạy nền ngoài đường chat).
+    LaunchedEffect(providerStore) { providerStore?.autoCheckKeys() }
     // Bắt đầu một lượt hỏi mới thì câu thông báo chuyển key của lượt trước không còn ý nghĩa nữa.
     var seenExchanges by rememberSaveable { mutableIntStateOf(-1) }
     LaunchedEffect(ui.exchanges.size) {
@@ -330,6 +335,7 @@ fun ChatScreen(
     // Quay lại app (ví dụ vừa bật tay Tùy chọn nhà phát triển theo thẻ nhắc): thử bật lại tiếp.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         bankCardDismissed = false
+        providerStore?.autoCheckKeys()
         scope.launch { bankMode?.restoreOnLaunch() }
     }
     /** 长按了的那条消息;菜单开着(收起的动画放完才清掉)。 */
@@ -445,6 +451,17 @@ fun ChatScreen(
                     Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp),
                     style = MikaType.Caption, color = c.warn, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
+            }
+            // Đang chờ nhà cung cấp mở lại lượt để vòng lại (v3.5): chỉ hiện khi lượt cuối vẫn đang chạy,
+            // tránh câu chờ còn sót sau khi tác vụ đã dừng vì lý do khác.
+            chainWaitNote?.let { note ->
+                if (last?.status?.isActive() == true) {
+                    Text(
+                        note,
+                        Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp),
+                        style = MikaType.Caption, color = c.warn, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             // Đã tắt quyền đi ngân hàng mà app chưa tự bật lại hết được: thẻ nhắc kèm hai đường bật tay.
             if (bankPending && !bankCardDismissed &&

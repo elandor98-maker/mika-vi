@@ -186,6 +186,12 @@ class AgentLoop(
      * nơi lắp ráp đường sản phẩm từ giao diện mới bật.
      */
     private val quickChat: Boolean = false,
+    /**
+     * Thông tin máy THẬT do tầng lắp ráp (Android) đọc lúc chạy và đưa vào (v3.5-A: hãng + tên máy +
+     * phiên bản hệ điều hành) — :core không tự đọc được. Có thì cả vòng lặp đầy đủ (qua basePrompt do
+     * nơi lắp ráp ghép sẵn) lẫn đường chat nhanh đều nói đúng tên máy của người dùng thay vì đoán.
+     */
+    private val deviceInfo: String? = null,
 ) {
     init {
         require(maxSteps > 0) { "maxSteps must be positive" }
@@ -341,6 +347,7 @@ class AgentLoop(
         val system = QuickChat.systemPrompt(
             Prompts.system("identity"), Prompts.system("principles"),
             Instant.ofEpochMilli(now()).atZone(zone).format(QUICK_TIME_FORMAT),
+            deviceInfo,
         )
         val memoryMessage = listOfNotNull(ProfileContext.render(profileSnapshot), memoryText)
             .takeIf { it.isNotEmpty() }
@@ -590,7 +597,12 @@ class AgentLoop(
             }
         }
 
+        // Ngân sách tra cứu (v3.5-B): việc LiveInfo nhận một dòng nhắc ngân sách ngay từ đầu;
+        // hết ngân sách thì break ra phần tổng kết cuối vòng (finalTurn) để trả lời bằng dữ kiện đã có,
+        // thay vì đào tiếp — cơ chế y hệt khi bước chạy hết tự nhiên, không đụng vào bộ máy bước còn lại.
+        if (taskKind == TaskKind.LiveInfo) history += ctx.notice("lookup_budget", QuickChat.LOOKUP_BUDGET_NOTE)
         for (step in 1..maxSteps) {
+            if (QuickChat.lookupBudgetExceeded(taskKind, step, toolsEscalated)) break
             appendSteers(history, inbox)
             if (maxSteps != Int.MAX_VALUE) TurnPolicy.beforeStep(TurnSnapshot(step, maxSteps))?.let { history += ctx.notice(it.source, it.text) }
             appendRuntimeState(history, place, labels, step)

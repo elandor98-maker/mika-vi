@@ -205,6 +205,8 @@ data class ModelSetupUi(
     val keyed: Set<String> = emptySet(),
     /** Phòng AI v3.4: key đã lưu của từng hãng (số thứ tự, đuôi đã che, chip trạng thái) để liệt kê trong trang chi tiết. */
     val keyRows: Map<String, List<KeyRowUi>> = emptyMap(),
+    /** Phòng AI v3.5: đang chạy đợt «Kiểm tra tất cả key» hay không (nút kiểm tra hiện trạng thái + khóa bấm). */
+    val checkingKeys: Boolean = false,
     val listing: Map<String, ListState> = emptyMap(),
     /** ChatGPT 服务商的账号;没有这家时为 null。 */
     val chatGptAccount: ChatGptAccount? = null,
@@ -342,7 +344,7 @@ class ModelSetupViewModel(
     init {
         // 别处(开发者选项等)改了存储时跟着更新
         scope.launch {
-            merge(store.providers, store.configs, store.roles, store.keyStatuses, store.servingMain, store.providerKeyRevisions)
+            merge(store.providers, store.configs, store.roles, store.keyStatuses, store.servingMain, store.providerKeyRevisions, store.checkingKeys)
                 .collect { sync() }
         }
         speech?.let { s -> scope.launch { s.choice.collect { sync() } } }
@@ -404,6 +406,7 @@ class ModelSetupViewModel(
             providers = providers, configs = store.configs.value, roles = store.roles.value,
             keyed = providers.filter { store.hasKey(it.id) }.map { it.id }.toSet(),
             keyRows = providers.associate { it.id to store.keyRows(it.id) },
+            checkingKeys = store.checkingKeys.value,
             chatGptAccount = store.chatGptProvider()?.let { p ->
                 store.chatGptSession(p.id).let { ChatGptAccount(it?.email.orEmpty(), it?.signedIn == true) }
             },
@@ -417,6 +420,14 @@ class ModelSetupViewModel(
     }
 
     private fun sync() = _state.update(::snapshot)
+
+    /**
+     * Phòng AI v3.5: nút «Kiểm tra tất cả key» — thử từng key đã lưu một lần gọi nhẹ, kết quả hiện
+     * ngay qua chip của từng key (store tự phát [ProviderStore.keyStatuses], snapshot tự chạy lại).
+     */
+    fun checkAllKeys() {
+        scope.launch(io) { runCatching { store.checkAllKeys() } }
+    }
 
     // ---------- 添加服务商 ----------
 

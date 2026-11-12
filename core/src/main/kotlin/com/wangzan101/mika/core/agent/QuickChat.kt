@@ -112,7 +112,25 @@ Questions about the current time or date are answered from the local time given 
 """
 
     /** Bộ lệnh gọn của đường nhanh: danh tính + nguyên tắc (đã gồm luật chính xác) + chỉ dẫn trên + giờ hiện tại. */
-    fun systemPrompt(identity: String, principles: String, localTime: String): String =
-        listOf(identity, principles, INSTRUCTIONS.trim(), "Current local date and time: $localTime")
+    fun systemPrompt(identity: String, principles: String, localTime: String, deviceInfo: String? = null): String =
+        listOfNotNull(identity, principles, INSTRUCTIONS.trim(), deviceInfo, "Current local date and time: $localTime")
             .joinToString("\n\n")
+
+    /**
+     * Ngân sách bước cho việc TRA CỨU đơn giản (v3.5-B): tối đa [LIVE_INFO_STEP_CAP] bước gọi công cụ,
+     * sau đó vòng lặp phải ra phần tổng kết trả lời bằng dữ kiện đã có — vụ hỏi giá ETH chạy 10 bước /
+     * 297K token là lý do có con số này. Chỉ áp cho [TaskKind.LiveInfo]; việc hành động lên điện thoại
+     * không bị cap, và một việc tra cứu đã leo thang thành hành động thật (đã mở đủ bộ công cụ) cũng
+     * được thả cap.
+     */
+    const val LIVE_INFO_STEP_CAP = 3
+
+    /** Dòng nhắc ngân sách đưa vào ngữ cảnh ngay khi việc được phân loại là tra cứu. */
+    const val LOOKUP_BUDGET_NOTE =
+        "Đây là việc tra cứu đơn giản. Chỉ dùng tối đa $LIVE_INFO_STEP_CAP lượt gọi công cụ để lấy dữ kiện, " +
+        "rồi trả lời ngay bằng dữ kiện đã có (nêu rõ nguồn); đừng đào sâu hay mở thêm trang/ứng dụng khi đã đủ để trả lời."
+
+    /** Bước [step] (1-based) của việc [kind] có vượt ngân sách tra cứu không — hàm thuần để kiểm thử. */
+    fun lookupBudgetExceeded(kind: TaskKind, step: Int, toolsEscalated: Boolean): Boolean =
+        kind == TaskKind.LiveInfo && !toolsEscalated && step > LIVE_INFO_STEP_CAP
 }

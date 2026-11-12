@@ -94,7 +94,7 @@ data class KeyChipUi(val chip: KeyChip, val label: String, val hint: String? = n
  * Ánh xạ thuần: trạng thái đã ghi của một key + có phải key đang chạy + thời gian hiện tại → chip.
  * Key đang chạy thắng mọi thứ; key chết (lỗi xác thực) đứng trên "hết lượt" vì thay key mới là việc cần làm.
  */
-fun keyChipUi(status: KeyLinkStatus?, isServing: Boolean, nowMs: Long): KeyChipUi {
+fun keyChipUi(status: KeyLinkStatus?, isServing: Boolean, nowMs: Long, dailyResetHint: String = "mở lại ~15:00"): KeyChipUi {
     if (isServing) return KeyChipUi(KeyChip.Serving, "Đang dùng")
     val s = status ?: return KeyChipUi(KeyChip.Ready, "Sẵn sàng")
     if (s.lastErrorKind == "Auth" || s.lastErrorKind == "SignInExpired") {
@@ -102,7 +102,8 @@ fun keyChipUi(status: KeyLinkStatus?, isServing: Boolean, nowMs: Long): KeyChipU
     }
     if (s.cooldownUntilMs > nowMs && s.lastErrorKind != null) {
         val hint = if (s.lastErrorKind in DAILY_KINDS) {
-            "mở lại ~15:00"
+            // Giờ reset lượt ngày theo TỪNG hãng (v3.5-C): nơi gọi truyền vào; mặc định giữ lệ cũ ~15:00
+            dailyResetHint
         } else {
             val remainMs = s.cooldownUntilMs - nowMs
             if (remainMs <= 90_000L) "mở lại sau ~1 phút"
@@ -118,3 +119,49 @@ fun keyTail(key: String): String = "…" + key.takeLast(4)
 
 /** Một dòng key trong trang chi tiết nhà cung cấp: số thứ tự, đuôi đã che, chip trạng thái. */
 data class KeyRowUi(val index: Int, val tail: String, val chip: KeyChipUi)
+
+/**
+ * Một mắt xích sập vì [e] thì bị bỏ qua bao lâu (ms). Bảng này là NGUỒN DUY NHẤT: [FailoverChatModel]
+ * dùng khi đánh dấu mắt xích lúc chạy, [ProviderStore] dùng khi ghi kết quả kiểm tra key trước
+ * (v3.5) — hai nơi phải ra cùng một con số, nếu không chip trong Cài đặt sẽ nói khác với hành vi thật.
+ * Giới hạn theo phút: theo Retry-After của nhà cung cấp, không có thì 60 giây. Hết lượt ngày / key chết /
+ * model không còn: 10 phút. Lỗi hạ tầng (máy chủ, mạng, đứt truyền, key ì bị cắt): 30 giây.
+ */
+fun keyCooldownMs(e: ModelError): Long = when (e) {
+    is ModelError.RateLimited -> e.retryAfterMs ?: 60_000L
+    is ModelError.QuotaExceeded, is ModelError.DailyBudgetExceeded, is ModelError.ChatGptLimitReached,
+    is ModelError.Auth, is ModelError.SignInExpired, is ModelError.ModelNotFound, is ModelError.ModelNotAvailable,
+    is ModelError.ToolsUnsupported, is ModelError.ReasoningEffortRejected, is ModelError.ContextTooLong -> 600_000L
+    else -> 30_000L
+}
+
+/**
+ * Cổng của một mắt xích nhìn từ trạng thái key ĐÃ LƯU (v3.5): chuỗi dự phòng xếp thứ tự thử theo cổng này —
+ * [Ready] thử trước, [Cooling] thử sau khi các mắt xích sẵn sàng đã trượt hết, [Dead] bỏ qua hẳn
+ * (chỉ được mở lại khi kiểm tra trước xác nhận key sống lại, hoặc người dùng dán key mới thay cả danh sách).
+ */
+enum class LinkGate { Ready, Cooling, Dead }
+
+/** Ánh xạ thuần: trạng thái đã lưu của một key + mốc hiện tại → cổng của mắt xích tương ứng. */
+fun linkGateOf(status: KeyLinkStatus?, nowMs: Long): LinkGate = when {
+    status == null -> LinkGate.Ready
+    status.lastErrorKind == "Auth" || status.lastErrorKind == "SignInExpired" -> LinkGate.Dead
+    status.cooldownUntilMs > nowMs -> LinkGate.Cooling
+    else -> LinkGate.Ready
+}
+
+/**
+ * Nhóm lỗi để chuỗi dự phòng quyết định DỪNG hay CHỜ VÒNG LẠI khi mọi mắt xích đều trượt (v3.5):
+ * [Temporary] = chỉ bị chặn tạm thời (giới hạn theo phút, máy chủ, mạng, đứt truyền) — chờ rồi vòng lại;
+ * [AuthDead] = key chết thật; [DailyUsed] = hết lượt theo ngày; [OtherPermanent] = lỗi cấu hình/model,
+ * chờ cũng không hết.
+ */
+enum class FailureClass { Temporary, AuthDead, DailyUsed, OtherPermanent }
+
+/** Ánh xạ thuần một lỗi mô hình → [FailureClass]. Chỉ các lỗi đáng chuyển nhà mới tới được bước phân loại này. */
+fun failureClassOf(e: ModelError): FailureClass = when (e) {
+    is ModelError.RateLimited, is ModelError.Network, is ModelError.StreamCut, is ModelError.Server -> FailureClass.Temporary
+    is ModelError.Auth, is ModelError.SignInExpired -> FailureClass.AuthDead
+    is ModelError.QuotaExceeded, is ModelError.DailyBudgetExceeded, is ModelError.ChatGptLimitReached -> FailureClass.DailyUsed
+    else -> FailureClass.OtherPermanent
+}

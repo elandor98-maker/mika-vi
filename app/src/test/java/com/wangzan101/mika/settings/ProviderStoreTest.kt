@@ -2,15 +2,19 @@ package com.wangzan101.mika.settings
 
 import com.wangzan101.mika.core.model.Capabilities
 import com.wangzan101.mika.core.model.ChatModel
+import com.wangzan101.mika.core.model.ListFailure
 import com.wangzan101.mika.core.model.ListedModel
 import com.wangzan101.mika.core.model.Message
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.model.ModelEndpoint
+import com.wangzan101.mika.core.model.ModelListResult
 import com.wangzan101.mika.core.model.ModelProtocol
 import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ModelSession
+import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.StopReason
+import com.wangzan101.mika.core.model.StreamingChatModel
 import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.model.Usage
 import com.wangzan101.mika.core.usage.UsagePurpose
@@ -145,7 +149,9 @@ class ProviderStoreTest {
             val cfg = s.configFor(ModelRole.Main)!!
             assertTrue(s.setModelContext(cfg.id, ModelContextSettings(readTimeoutSeconds = 1)))
             try {
-                s.modelFor(ModelRole.Main)!!.complete("", emptyList(), emptyList())
+                // Qua vai Light (cùng một cấu hình với Main): từ v3.5 chuỗi Main gặp lỗi mạng tạm thời
+                // sẽ tự chờ rồi vòng lại chứ không ném lỗi ra nữa; ý đồ kiểm chứng timeout đọc thì không đổi.
+                s.modelFor(ModelRole.Light)!!.complete("", emptyList(), emptyList())
                 fail("Expected the configured read timeout")
             } catch (_: ModelError.Network) {
                 // 真实适配器在读取响应头时超时,而不只是 ClientSetup 里保存了一个数字。
@@ -1319,6 +1325,319 @@ class ProviderStoreTest {
         // Thay toàn bộ key (đổi key) thì trạng thái của key cũ bị xoá, không dính sang key mới
         s.updateProviderKey(p.id, "k9")
         assertNull(s.keyStatuses.value[p.id])
+    }
+
+    // ---------- v3.5: kiểm tra trước key, cổng key chết, đồng hồ key ì, cơ chế không dừng ----------
+
+    @Test fun preCheckRecordsStatusForEveryKey() = runTest {
+        var listerResult: (String?) -> ModelListResult = { key ->
+            when (key) {
+                "dead" -> ModelListResult.Failed(ListFailure.Auth)
+                "limited" -> ModelListResult.Failed(ListFailure.RateLimited)
+                else -> ModelListResult.Ok(listOf(ListedModel("m1")))
+            }
+        }
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelLister = { _, _, apiKey, _ -> listerResult(apiKey) },
+            modelFactory = { cfg, _, _, _ -> FakeModel(cfg.capabilities) },
+        )
+        val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "dead", listOf(ListedModel("m1")))
+        assertEquals(2, s.appendProviderKey(p.id, "good"))
+        assertEquals(3, s.appendProviderKey(p.id, "limited"))
+
+        assertEquals(3, s.checkAllKeys())
+        assertFalse(s.checkingKeys.value)
+        val st = s.keyStatuses.value[p.id]!!
+        assertEquals("Auth", st[0].lastErrorKind)
+        assertNull(st[1].lastErrorKind)
+        assertEquals("RateLimited", st[2].lastErrorKind)
+        assertTrue(st[2].cooldownUntilMs > System.currentTimeMillis())
+        // Chip trong Cài đặt khớp kết quả kiểm tra: key chết / sẵn sàng / hết lượt
+        val rows = s.keyRows(p.id)
+        assertEquals(KeyChip.AuthError, rows[0].chip.chip)
+        assertEquals(KeyChip.Ready, rows[1].chip.chip)
+        assertEquals(KeyChip.Cooldown, rows[2].chip.chip)
+
+        // Đợt kiểm tra sau: mọi key đều sống → lỗi đã ghi bị xoá sạch
+        listerResult = { ModelListResult.Ok(listOf(ListedModel("m1"))) }
+        assertEquals(3, s.checkAllKeys())
+        val st2 = s.keyStatuses.value[p.id]!!
+        assertNull(st2[0].lastErrorKind)
+        assertNull(st2[2].lastErrorKind)
+        assertEquals(0L, st2[2].cooldownUntilMs)
+    }
+
+    @Test fun dailyResetHintFollowsEachProvider() = runTest {
+        var listerResult: ModelListResult = ModelListResult.Ok(listOf(ListedModel("m1")))
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelLister = { _, _, _, _ -> listerResult },
+            modelFactory = { cfg, _, _, _ -> FakeModel(cfg.capabilities) },
+        )
+        val g = s.connect("Gemini", ProviderConfig.Kind.Gemini, "https://generativelanguage.googleapis.com/v1beta", "k1", listOf(ListedModel("m1")))
+        val o = s.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", "k2", listOf(ListedModel("m1")))
+        // Cả hai hãng đều báo hết lượt ngày ở đợt kiểm tra trước
+        listerResult = ModelListResult.Failed(ListFailure.Quota)
+        s.checkAllKeys()
+        // Chip phải hiện đúng giờ reset của TỪNG hãng (v3.5-C), không phải một giờ chung cho tất cả
+        assertEquals("sống lại lúc 15:00", s.keyRows(g.id)[0].chip.hint)
+        assertEquals("sống lại lúc 07:00", s.keyRows(o.id)[0].chip.hint)
+    }
+
+    @Test fun preCheckFallsBackToProbeWhenListingUnsupported() = runTest {
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelLister = { _, _, _, _ -> ModelListResult.Failed(ListFailure.NotSupported) },
+            modelFactory = { cfg, _, _, _ -> FakeModel(cfg.capabilities) },
+        )
+        val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
+        // Hãng không cho liệt kê → gọi thử tối thiểu; trả lời được (dù không gọi công cụ) cũng tính là key sống
+        assertEquals(1, s.checkAllKeys())
+        assertNull(s.keyStatuses.value[p.id]?.get(0)?.lastErrorKind)
+    }
+
+    @Test fun knownDeadKeyIsSkippedFromTheFirstAttempt() = runTest {
+        val attempts = mutableListOf<String?>()
+        var listerResult: (String?) -> ModelListResult = { ModelListResult.Ok(listOf(ListedModel("m1"))) }
+        val s = ProviderStore(
+            tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3",
+            modelLister = { _, _, apiKey, _ -> listerResult(apiKey) },
+            modelFactory = { cfg, apiKey, _, _ ->
+                object : ChatModel {
+                    override val capabilities: Capabilities = cfg.capabilities
+                    override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                        attempts += apiKey
+                        return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+                    }
+                }
+            },
+        )
+        val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
+        assertEquals(2, s.appendProviderKey(p.id, "k2"))
+        s.use(ModelRole.Main, p.id, "m1", none)
+
+        // Kiểm tra trước: k1 chết vì xác thực (cổng Dead), k2 bị giới hạn theo phút (cổng Cooling)
+        listerResult = { key ->
+            when (key) {
+                "k1" -> ModelListResult.Failed(ListFailure.Auth)
+                else -> ModelListResult.Failed(ListFailure.RateLimited)
+            }
+        }
+        s.checkAllKeys()
+        // k1 bị bỏ qua hẳn; k2 đang cooldown nhưng là mắt xích duy nhất còn lại nên được thử và chạy ngon
+        s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+        assertEquals(listOf("k2"), attempts)
+
+        // Cả hai key đều chết: chuỗi dừng ngay bằng tín hiệu «tất cả key đều chết», không thử key nào nữa
+        attempts.clear()
+        listerResult = { ModelListResult.Failed(ListFailure.Auth) }
+        s.checkAllKeys()
+        try {
+            s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+            fail("mọi key đều chết thì phải dừng")
+        } catch (e: ModelError.AllKeysDead) {
+            // đúng tín hiệu
+        }
+        assertTrue(attempts.isEmpty())
+    }
+
+    @Test fun slowCallIsCutAndNextLinkServes() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        val attempts = mutableListOf<Int>()
+        val failures = mutableListOf<String>()
+        val hanging = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                attempts += 1
+                delay(120_000) // ì hơn đồng hồ 60 giây (thời gian ảo của runTest)
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(9, 9))
+            }
+        }
+        val fast = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                attempts += 2
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))
+            }
+        }
+        val ids = listOf(ServingLink("g", "Gemini", 1, 2, "m1"), ServingLink("g", "Gemini", 2, 2, "m1"))
+        val model = FailoverChatModel(
+            listOf(hanging, fast),
+            nowMs = { testScheduler.currentTime },
+            linkIds = ids,
+            onFailed = { link, e, _ -> failures += "${link.keyIndex}:${keyErrorKind(e)}" },
+        )
+        val reply = model.complete("s", emptyList(), emptyList())
+        assertEquals(Usage(3, 2), reply.usage)
+        assertEquals(listOf(1, 2), attempts)
+        // Key ì bị cắt được ghi là lỗi mạng (hạ tầng, cooldown ngắn), không phải key chết
+        assertEquals(listOf("1:Network"), failures)
+    }
+
+    @Test fun streamingActivityResetsTheSlowCutoff() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        val attempts = mutableListOf<Int>()
+        val slowButAlive = object : StreamingChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply =
+                ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+            override suspend fun completeStreaming(
+                system: String, messages: List<Message>, tools: List<ToolSpec>, onText: (String) -> Unit,
+            ): ModelReply {
+                attempts += 1
+                // Tổng 90 giây > đồng hồ 60 giây, nhưng cứ 30 giây lại có chữ mới → không bị cắt
+                repeat(3) { delay(30_000); onText("đoạn ${it + 1}") }
+                return ModelReply(listOf(Part.Text("xong")), StopReason.EndTurn, Usage(5, 5))
+            }
+        }
+        val other = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                attempts += 2
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))
+            }
+        }
+        val model = FailoverChatModel(listOf(slowButAlive, other), nowMs = { testScheduler.currentTime })
+        val reply = model.completeStreaming("s", emptyList(), emptyList()) {}
+        assertEquals(Usage(5, 5), reply.usage)
+        assertEquals(listOf(1), attempts)
+    }
+
+    @Test fun streamingStallBeforeFirstTextIsCutAndFailsOver() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        val attempts = mutableListOf<Int>()
+        val stalled = object : StreamingChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply =
+                ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+            override suspend fun completeStreaming(
+                system: String, messages: List<Message>, tools: List<ToolSpec>, onText: (String) -> Unit,
+            ): ModelReply {
+                attempts += 1
+                delay(120_000) // chưa ra chữ nào đã ì
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(9, 9))
+            }
+        }
+        val fast = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                attempts += 2
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))
+            }
+        }
+        val model = FailoverChatModel(listOf(stalled, fast), nowMs = { testScheduler.currentTime })
+        val reply = model.completeStreaming("s", emptyList(), emptyList()) {}
+        assertEquals(Usage(3, 2), reply.usage)
+        assertEquals(listOf(1, 2), attempts)
+    }
+
+    @Test fun temporaryExhaustionWaitsAndCyclesFromTheFirstLink() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        var clock = 0L
+        val attempts = mutableListOf<Int>()
+        val waits = mutableListOf<Long>()
+        fun scripted(index: Int, succeedsFromMs: Long?) = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                attempts += index
+                if (succeedsFromMs == null || clock < succeedsFromMs) throw ModelError.RateLimited(null)
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+            }
+        }
+        val ids = listOf(ServingLink("g", "Gemini", 1, 2, "m1"), ServingLink("g", "Gemini", 2, 2, "m1"))
+        val model = FailoverChatModel(
+            listOf(scripted(1, 60_000L), scripted(2, null)),
+            nowMs = { clock },
+            linkIds = ids,
+            neverStop = true,
+            onWait = { waits += it },
+            delayer = { clock += it },
+        )
+        model.complete("s", emptyList(), emptyList())
+        // Vòng 1 cả hai key đều bị giới hạn theo phút → chờ đúng 60 giây → vòng 2 chạy lại TỪ KEY ĐẦU và thành công ở đó
+        assertEquals(listOf(1, 2, 1), attempts)
+        assertEquals(listOf(60_000L), waits)
+    }
+
+    @Test fun neverStopSingleLinkRateLimitedEventuallySucceeds() = runTest {
+        val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 64_000, reasoning = false)
+        var clock = 0L
+        var calls = 0
+        val only = object : ChatModel {
+            override val capabilities: Capabilities = caps
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                calls++
+                if (calls < 3) throw ModelError.RateLimited(null)
+                return ModelReply(emptyList(), StopReason.EndTurn, Usage(1, 1))
+            }
+        }
+        val model = FailoverChatModel(
+            listOf(only), nowMs = { clock }, neverStop = true,
+            delayer = { clock += it },
+        )
+        // Đúng cảnh người dùng gặp: MỘT key duy nhất bị giới hạn theo phút — app tự chờ rồi thử lại, không dừng bắt bấm tay
+        model.complete("s", emptyList(), emptyList())
+        assertEquals(3, calls)
+        assertEquals(120_000L, clock)
+    }
+
+    @Test fun allAuthFailureStopsWithAllKeysDeadSignal() = runTest {
+        val attempts = mutableListOf<String?>()
+        val s = ProviderStore(tmp.root, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3", modelFactory = { cfg, apiKey, _, _ ->
+            object : ChatModel {
+                override val capabilities: Capabilities = cfg.capabilities
+                override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                    attempts += apiKey
+                    throw ModelError.Auth()
+                }
+            }
+        })
+        val p = s.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
+        assertEquals(2, s.appendProviderKey(p.id, "k2"))
+        s.use(ModelRole.Main, p.id, "m1", none)
+        try {
+            s.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+            fail("mọi key đều chết thì phải dừng bằng tín hiệu AllKeysDead")
+        } catch (e: ModelError.AllKeysDead) {
+            // đúng tín hiệu: màn hình sẽ nói rõ TẤT CẢ key đều chết, hãy dán key mới
+        }
+        // Mỗi key chỉ bị thử đúng một lần — key chết thì không vòng lại chờ vô ích
+        assertEquals(listOf("k1", "k2"), attempts)
+    }
+
+    @Test fun allDailyQuotaFailureStopsWithAllDailySignal() = runTest {
+        fun storeThrowing(dir: File, errors: Map<String, ModelError>): ProviderStore =
+            ProviderStore(dir, AesGcmKeyCipher { key }, userAgent = "Mika/1.2.3", modelFactory = { cfg, apiKey, _, _ ->
+                object : ChatModel {
+                    override val capabilities: Capabilities = cfg.capabilities
+                    override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                        throw errors.getValue(apiKey!!)
+                    }
+                }
+            })
+        // Cả hai key đều hết lượt ngày của nhà cung cấp
+        val s1 = storeThrowing(tmp.newFolder("a"), mapOf("k1" to ModelError.QuotaExceeded(), "k2" to ModelError.QuotaExceeded()))
+        val p1 = s1.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
+        assertEquals(2, s1.appendProviderKey(p1.id, "k2"))
+        s1.use(ModelRole.Main, p1.id, "m1", none)
+        try {
+            s1.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+            fail("hết sạch lượt ngày thì phải dừng")
+        } catch (e: ModelError.AllDailyQuotaExhausted) {
+            // đúng tín hiệu: màn hình sẽ nói rõ hết lượt hôm nay và giờ mở lại ~15:00
+        }
+        // Một key chết + key còn lại hết lượt ngày: vẫn dừng bằng tín hiệu hết lượt (key chết không tính vào vế còn lại)
+        val s2 = storeThrowing(tmp.newFolder("b"), mapOf("k1" to ModelError.Auth(), "k2" to ModelError.QuotaExceeded()))
+        val p2 = s2.connect("P", ProviderConfig.Kind.OpenAiCompat, "https://p.test/v1", "k1", listOf(ListedModel("m1")))
+        assertEquals(2, s2.appendProviderKey(p2.id, "k2"))
+        s2.use(ModelRole.Main, p2.id, "m1", none)
+        try {
+            s2.modelFor(ModelRole.Main)!!.complete("s", emptyList(), emptyList())
+            fail("key còn lại hết lượt ngày thì phải dừng bằng tín hiệu hết lượt")
+        } catch (e: ModelError.AllDailyQuotaExhausted) {
+            // đúng tín hiệu
+        }
     }
 
     private class FakeModel(override val capabilities: Capabilities) : ChatModel {

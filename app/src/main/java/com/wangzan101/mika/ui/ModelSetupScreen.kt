@@ -203,6 +203,7 @@ fun ModelSetupScreen(
                 ui, onboarding,
                 ModelSetupActions(
                     setPasteKey = vm::setPasteKey, submitPasteKey = vm::submitPasteKey,
+                    checkAllKeys = vm::checkAllKeys,
                     selectPreset = vm::selectPreset, setKind = vm::setKind, setBaseUrl = vm::setBaseUrl, setApiKey = vm::setApiKey,
                     setModel = vm::setModel, setManual = vm::setManual, setName = vm::setName,
                     testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
@@ -247,6 +248,8 @@ class ModelSetupActions(
     /** Ô «dán key» (v3.3): gõ/dán key và bấm Thêm key. */
     val setPasteKey: (String) -> Unit = {},
     val submitPasteKey: () -> Unit = {},
+    /** Phòng AI v3.5: kiểm tra trước mọi key đã lưu (sống / hết lượt / chết hiện qua chip của từng key). */
+    val checkAllKeys: () -> Unit = {},
     val selectPreset: (String) -> Unit = {},
     val setKind: (ProviderConfig.Kind) -> Unit = {},
     val setBaseUrl: (String) -> Unit = {},
@@ -374,6 +377,19 @@ private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
                     MikaIcons.Plus, ModelsCopy.ADD_PROVIDER, titleColor = c.accent, tone = TileTone.Accent,
                     onClick = actions.openForm,
                 )
+            }
+        }
+        // Phòng AI v3.5: kiểm tra sẵn mọi key đã lưu — key sống / hết lượt / chết hiện qua chip
+        // trong trang của từng hãng, và chuỗi dự phòng sẽ bỏ qua key đã biết chết khi chạy việc.
+        if (ui.keyRows.values.any { it.isNotEmpty() }) {
+            GroupCard {
+                ListRow(
+                    MikaIcons.Refresh,
+                    if (ui.checkingKeys) "Đang kiểm tra key…" else "Kiểm tra tất cả key",
+                    "Thử từng key một lần gọi nhẹ để biết key nào còn sống, key nào hết lượt hay đã chết",
+                    first = true,
+                    onClick = if (ui.checkingKeys) null else actions.checkAllKeys,
+                ) { RowChevron() }
             }
         }
     }
