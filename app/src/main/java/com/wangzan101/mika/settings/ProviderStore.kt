@@ -935,7 +935,7 @@ class ProviderStore(
             },
             onFailed = ::noteKeyFailed,
             onSwitch = if (role == ModelRole.Main) ::noteKeySwitch else { _, _, _ -> },
-            onWait = if (role == ModelRole.Main) { _chainWaitNote.value = AgentLoop.RETRY_WAIT_NOTE } else { _ -> },
+            onWait = if (role == ModelRole.Main) { _ -> _chainWaitNote.value = AgentLoop.RETRY_WAIT_NOTE } else { _ -> },
         )
     }
 
