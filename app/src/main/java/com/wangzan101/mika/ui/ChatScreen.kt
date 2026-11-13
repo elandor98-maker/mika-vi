@@ -485,8 +485,14 @@ fun ChatScreen(
             }
         }
 
-        Composer(
+        // Cột đáy: thanh nhập + một banner quảng cáo thử nghiệm neo ngay bên dưới.
+        // Đo chiều cao chung cả cột (vẫn ghi vào composerHeight) nên danh sách tin nhắn
+        // và cửa sổ nhỏ tự đệm đáy theo, không bị banner che.
+        Column(
             Modifier.align(Alignment.BottomCenter).behindMenu(menuOpen) { lift.value }.onSizeChanged { composerHeight = it.height },
+        ) {
+        Composer(
+            Modifier,
             backdrop = backdrop,
             text = input,
             draftKey = ui.conversationId,
@@ -534,6 +540,8 @@ fun ChatScreen(
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
         )
+        AdBannerBar()
+        }
 
         AgentPip(
             pip = ui.pip,

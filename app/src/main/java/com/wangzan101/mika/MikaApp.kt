@@ -8,6 +8,7 @@ import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.ui.ChatCopy
 import android.app.Application
+import com.google.android.gms.ads.MobileAds
 import android.net.Uri
 import android.util.Log
 import com.wangzan101.mika.chat.AndroidBranchWorkspace
@@ -439,6 +440,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             val state = SandboxState.get(this@MikaApp)
             runCatching { SkillsSync.sync(SandboxDirs(this@MikaApp)) { state.status.value is SandboxStatus.Ready } }
         }
+        // Quảng cáo AdMob: khởi động SDK một lần khi tiến trình lên; có lỗi cũng bỏ qua,
+        // quảng cáo không bao giờ được làm sập hay chậm các chức năng chính của app.
+        runCatching { MobileAds.initialize(this) }
     }
 
     /** 用户重新打开 Mika:补上退出时略过的启动工作(见 [com.wangzan101.mika.quit.MikaQuit])。 */

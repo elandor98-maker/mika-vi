@@ -139,6 +139,8 @@ dependencies {
     implementation(libs.mlkit.text.recognition.chinese)
     // 微信绑定二维码只在本机编码，不调用在线图片服务。
     implementation(libs.zxing.core)
+    // Quảng cáo AdMob: bản này chỉ nạp mã quảng cáo THỬ NGHIỆM công khai của Google.
+    implementation(libs.play.services.ads)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
